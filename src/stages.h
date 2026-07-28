@@ -64,61 +64,66 @@ struct Stage {
 
     // difficulty, applied on top of ENEMY_STATS
     float hpMul, dmgMul, spdMul;
-    int   maxAttackers;       // how many may swing at once â€” the key dial
+    int   maxAttackers;       // how many may swing at once - the key dial
+
+    // A second boss standing on the floor at the same time. -1 for none.
+    int   bossExtraKind;
+    float bossExtraHpMul;
 };
 
-constexpr int STAGE_COUNT = 5;
+constexpr int STAGE_COUNT = 4;
 
+// Four stages. Two allies fight beside you the whole way, so the numbers are
+// tuned for three-on-many rather than one-on-many: fewer enemies per wave,
+// fewer allowed to swing at once, and a gentler climb than before.
 constexpr Stage STAGES[STAGE_COUNT] = {
-    // ---------------------------------------------------------
+    // --------------------------- 1 ---------------------------
+    // Chhatra League only, exactly as asked. An easy opener you should
+    // reach the boss of on your first try.
     {   "SHAHBAGH", "the first barricade", 0,
         {
             { 340,  3, 2, { CK_CHHATRA }, 1 },
-            { 700,  4, 3, { CK_CHHATRA }, 1 },
-            { 1060, 5, 3, { CK_CHHATRA, CK_POLICE }, 2 },
+            { 700,  4, 2, { CK_CHHATRA }, 1 },
+            { 1060, 4, 3, { CK_CHHATRA }, 1 },
         }, 3, 1420,
-        CK_CHHATRA, "THE RINGLEADER", "he brought the sticks", 4.5f, true,
-        1.00f, 1.00f, 1.00f, 2
+        CK_CHHATRA, "SOVAPOTI SADDAM", "he brought the sticks", 3.2f, true,
+        0.85f, 0.70f, 0.95f, 2,
+        -1, 0.0f
     },
-    // ---------------------------------------------------------
-    {   "RAMPURA", "the bridge holds", 1,
-        {
-            { 340,  4, 3, { CK_CHHATRA, CK_POLICE }, 2 },
-            { 720,  5, 3, { CK_POLICE, CK_CHHATRA }, 2 },
-            { 1120, 5, 3, { CK_POLICE, CK_DBPOLICE }, 2 },
-        }, 3, 1500,
-        CK_JALLAD, "JALLAD", "the executioner", 1.0f, false,
-        1.15f, 1.10f, 1.05f, 2
-    },
-    // ---------------------------------------------------------
+    // --------------------------- 2 ---------------------------
     {   "UTTARA", "they cut the internet", 2,
         {
-            { 340,  5, 3, { CK_DBPOLICE, CK_CHHATRA }, 2 },
-            { 760,  6, 4, { CK_POLICE, CK_DBPOLICE }, 2 },
-            { 1180, 6, 4, { CK_CHHATRA, CK_POLICE, CK_DBPOLICE }, 3 },
+            { 340,  4, 3, { CK_CHHATRA, CK_POLICE }, 2 },
+            { 760,  5, 3, { CK_POLICE, CK_DBPOLICE }, 2 },
+            { 1180, 5, 3, { CK_CHHATRA, CK_POLICE, CK_DBPOLICE }, 3 },
         }, 3, 1560,
-        CK_DBPOLICE, "DB HARUN", "the one who fires first", 5.5f, true,
-        1.30f, 1.20f, 1.10f, 3
+        CK_DBPOLICE, "DB HARUN", "the one who fires first", 4.0f, true,
+        0.95f, 0.85f, 1.00f, 2,
+        -1, 0.0f
     },
-    // ---------------------------------------------------------
+    // --------------------------- 3 ---------------------------
     {   "JATRABARI", "nothing left to lose", 3,
         {
-            { 340,  6, 4, { CK_POLICE, CK_CHHATRA }, 2 },
-            { 780,  6, 4, { CK_JALLAD, CK_POLICE }, 2 },
-            { 1200, 7, 4, { CK_DBPOLICE, CK_POLICE, CK_JALLAD }, 3 },
+            { 340,  5, 3, { CK_POLICE, CK_CHHATRA }, 2 },
+            { 780,  5, 3, { CK_JALLAD, CK_POLICE }, 2 },
+            { 1200, 6, 4, { CK_DBPOLICE, CK_POLICE, CK_CHHATRA }, 3 },
         }, 3, 1620,
         CK_KADER, "KAWWA KADER", "he called you a crow", 1.0f, false,
-        1.50f, 1.30f, 1.15f, 3
+        1.10f, 0.95f, 1.05f, 3,
+        -1, 0.0f
     },
-    // ---------------------------------------------------------
+    // --------------------------- 4 ---------------------------
+    // The finale: Hasina AND Jallad on the floor together. `bossExtraKind`
+    // spawns the second one beside her, so it is a genuine two-on-three.
     {   "GANABHABAN", "5 August - the gate is open", 4,
         {
-            { 340,  6, 4, { CK_DBPOLICE, CK_POLICE }, 2 },
-            { 800,  7, 4, { CK_JALLAD, CK_DBPOLICE }, 2 },
-            { 1240, 8, 5, { CK_JALLAD, CK_POLICE, CK_DBPOLICE, CK_CHHATRA }, 4 },
+            { 340,  5, 3, { CK_DBPOLICE, CK_POLICE }, 2 },
+            { 800,  6, 4, { CK_JALLAD, CK_DBPOLICE }, 2 },
+            { 1240, 6, 4, { CK_POLICE, CK_DBPOLICE, CK_CHHATRA }, 3 },
         }, 3, 1700,
         CK_HASINA, "SHEIKH HASINA", "the final chair", 1.0f, false,
-        1.75f, 1.45f, 1.20f, 3
+        1.25f, 1.05f, 1.10f, 3,
+        CK_JALLAD, 0.85f
     },
 };
 

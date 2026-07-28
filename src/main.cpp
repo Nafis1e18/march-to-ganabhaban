@@ -13,6 +13,8 @@
 #include "stages.h"
 #include "sprites.h"
 #include "audio.h"
+#include "text.h"
+#include "textids.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -108,6 +110,7 @@ struct World {
     int  stateT = 0;
 
     Fighter player;
+    std::vector<Fighter>    allies;      // Jitu and Antor
     std::vector<Fighter>    enemies;
     std::vector<Projectile> shots;
     std::vector<Particle>   parts;
@@ -298,6 +301,23 @@ static void SpawnPlayer(float x) {
     p.invuln = 70;
 }
 
+// Jitu and Antor. They cannot die — when their health runs out they drop, sit
+// out a few seconds and get back up. Two friends who can be permanently lost
+// would make the game harder every time you looked away, which is the opposite
+// of what allies are for.
+static Fighter MakeAlly(int kind, float x, float z) {
+    Fighter a;
+    a.kind = kind;
+    a.palette = (kind == CK_JITU) ? PAL_CHHATRA : PAL_POLICE;
+    a.x = x; a.z = z;
+    a.hp = a.maxHp = 70;
+    a.height = 46;
+    a.facing = 1;
+    a.isAlly = true;
+    a.aiTimer = GetRandomValue(10, 40);
+    return a;
+}
+
 static void StartStage(int idx) {
     W.stage = idx;
     W.enemies.clear(); W.shots.clear(); W.parts.clear();
@@ -305,6 +325,9 @@ static void StartStage(int idx) {
     W.bossOut = false; W.bossDead = false;
     W.camLock = false; W.goTimer = 0;
     SpawnPlayer(60);
+    W.allies.clear();
+    W.allies.push_back(MakeAlly(CK_JITU,  30.0f, BELT_TOP + 14));
+    W.allies.push_back(MakeAlly(CK_ANTOR, 30.0f, BELT_BOT - 14));
     W.camX = 0;
     LoadStageBackground(Cur().bg);
     StartMusic(idx);            // a semitone up and a few bpm faster each stage
@@ -361,6 +384,16 @@ static void SpawnBoss() {
     if (!s.bossElite) b.hp = b.maxHp = (int)(ENEMY_STATS[s.bossKind].hp * s.hpMul * s.bossHpMul);
     b.isBoss = true;
     W.enemies.push_back(b);
+
+    // A second boss on the floor at the same time — Jallad beside Hasina.
+    if (s.bossExtraKind >= 0) {
+        Fighter x = MakeFighter(s.bossExtraKind, W.camX + GAME_W + 96.0f,
+                                (BELT_TOP + BELT_BOT) * 0.5f + 18.0f);
+        x.hp = x.maxHp = (int)(ENEMY_STATS[s.bossExtraKind].hp * s.hpMul * s.bossExtraHpMul);
+        x.isBoss = true;
+        W.enemies.push_back(x);
+    }
+
     W.bossOut = true;
     W.shake = 12;
     PlaySfx(SFX_BOSS);
@@ -518,10 +551,130 @@ static void UpdateEnemy(Fighter& e, int& attackers) {
 }
 
 // ============================================================
+//  Allies — Jitu and Antor
+//  They pick the nearest enemy, line up the depth lane and swing.
+//  When knocked out they lie there for a few seconds and get back
+//  up at full health; they never leave the fight for good.
+// ============================================================
+static void UpdateAlly(Fighter& a, int& allyAttackers) {
+    Fighter& p = W.player;
+    a.stateT++; a.age++; a.animT += 1.0f / 60.0f;
+    if (a.invuln > 0) a.invuln--;
+    FenceIn(a);
+
+    if (a.state == S_DOWN) {
+        if (a.y > 0 || a.vy > 0) { a.y += a.vy; a.vy -= GRAVITY; if (a.y < 0) { a.y = 0; a.vy = 0; } }
+        if (a.stateT >= 150) {                       // back on his feet
+            a.hp = a.maxHp; a.invuln = 70;
+            a.state = S_GETUP; a.anim = A_GETUP; a.stateT = 0; a.animT = 0;
+        }
+        return;
+    }
+    if (a.state == S_GETUP) {
+        if (a.stateT >= 22) { a.state = S_IDLE; a.anim = A_IDLE; a.animT = 0; }
+        return;
+    }
+    if (a.state == S_HURT) {
+        if (a.stateT >= HURT_STUN) { a.state = S_IDLE; a.anim = A_IDLE; a.animT = 0; }
+        return;
+    }
+    if (a.state == S_ATTACK) {
+        if (!a.hitLanded && a.stateT >= a.atk.activeFrom && a.stateT <= a.atk.activeTo) {
+            for (auto& e : W.enemies) {
+                if (!e.alive || e.state == S_DOWN) continue;
+                if (InRange(a, e, a.atk)) { TakeHit(e, a.atk, a.facing, false); a.hitLanded = true; break; }
+            }
+        }
+        if (a.stateT >= a.atk.total) {
+            a.state = S_IDLE; a.anim = A_IDLE; a.animT = 0;
+            a.hasToken = false; a.aiTimer = GetRandomValue(10, 30);
+        }
+        return;
+    }
+
+    // pick a target: nearest live enemy, else stay near the player
+    Fighter* tgt = nullptr; float best = 1e9f;
+    for (auto& e : W.enemies) {
+        if (!e.alive || e.state == S_DOWN) continue;
+        float d = fabsf(e.x - a.x) + fabsf(e.z - a.z) * 0.6f;
+        if (d < best) { best = d; tgt = &e; }
+    }
+
+    // Stagger the two of them, or they walk to the same spot and stack into
+    // what looks like one character with a doubled shadow.
+    const float slotZ = (a.kind == CK_JITU) ? -13.0f : 13.0f;
+    const float slotX = (a.kind == CK_JITU) ? -24.0f : -34.0f;
+
+    float tx, tz, want;
+    if (tgt) {
+        tx = tgt->x; tz = tgt->z + slotZ * 0.35f; want = 20.0f;
+    } else {
+        tx = p.x + slotX; tz = Clampf(p.z + slotZ, BELT_TOP, BELT_BOT); want = 12.0f;
+    }
+
+    float dx = tx - a.x, dz = tz - a.z;
+    if (fabsf(dx) > 2.0f) a.facing = (dx > 0) ? 1 : -1;
+
+    float mx = 0, mz = 0;
+    if (fabsf(dz) > 4.0f) mz = (dz > 0 ? 1.0f : -1.0f);
+    if (fabsf(dx) > want) mx = (dx > 0 ? 1.0f : -1.0f);
+
+    float spd = tgt ? 1.05f : 1.25f;                  // hurry to catch up
+    a.x += mx * WALK_X * spd;
+    a.z = Clampf(a.z + mz * WALK_Z * 0.9f, BELT_TOP, BELT_BOT);
+
+    bool moving = (mx != 0 || mz != 0);
+    a.state = moving ? S_WALK : S_IDLE;
+    a.anim  = moving ? (fabsf(dx) > 90.0f ? A_RUN : A_WALK) : A_IDLE;
+
+    if (a.aiTimer > 0) a.aiTimer--;
+    if (tgt && fabsf(dz) < 10.0f && fabsf(dx) < want + 8.0f && a.aiTimer == 0 &&
+        allyAttackers < 2) {
+        allyAttackers++;
+        AttackDef d = ATK_PUNCH1;
+        d.damage = 7;                                  // solid, but you out-damage them
+        if (GetRandomValue(0, 100) < 30) { d = ATK_PUNCH3; d.damage = 11; }
+        StartAttack(a, (d.knockdown ? A_PUNCH3 : A_PUNCH1), d);
+    }
+}
+
+static void HurtAlly(Fighter& a, const AttackDef& d, int fromFacing) {
+    if (a.invuln > 0 || a.state == S_DOWN) return;
+    a.hp -= d.damage;
+    a.x += d.push * fromFacing * 0.6f;
+    Spark(a.x, a.z, a.height * 0.55f);
+    if (a.hp <= 0) {
+        a.hp = 0;
+        a.state = S_DOWN; a.anim = A_DOWN; a.stateT = 0; a.animT = 0; a.vy = 3.0f;
+        a.hasToken = false;
+        return;
+    }
+    a.state = S_HURT; a.anim = A_HURT; a.stateT = 0; a.animT = 0;
+    a.invuln = 24;
+}
+
+// ============================================================
 //  Player
 // ============================================================
+// Double-tap detection for the run. Tracks the last tap direction and how
+// long ago it was; a second tap the same way inside the window starts a run,
+// which ends the moment you let go.
+static int  g_tapDir = 0, g_tapAge = 999;
+static int  g_runDir = 0;
+static bool g_prevL = false, g_prevR = false;
+
 static void UpdatePlayer(bool bL, bool bR, bool bU, bool bD, bool bPunch, bool bJump) {
     Fighter& p = W.player;
+
+    if (g_tapAge < 999) g_tapAge++;
+    bool tapL = bL && !g_prevL, tapR = bR && !g_prevR;
+    if (tapL || tapR) {
+        int dir = tapR ? 1 : -1;
+        if (g_tapDir == dir && g_tapAge <= RUN_TAP_GAP) g_runDir = dir;
+        g_tapDir = dir; g_tapAge = 0;
+    }
+    if ((g_runDir > 0 && !bR) || (g_runDir < 0 && !bL)) g_runDir = 0;
+    g_prevL = bL; g_prevR = bR;
     p.stateT++; p.animT += 1.0f / 60.0f;
     if (p.invuln > 0) p.invuln--;
     if (p.comboTimer > 0) p.comboTimer--; else p.comboStep = 0;
@@ -542,12 +695,17 @@ static void UpdatePlayer(bool bL, bool bR, bool bU, bool bD, bool bPunch, bool b
         float mz = (bD ? 1.0f : 0) - (bU ? 1.0f : 0);
         if (mx != 0) p.facing = (mx > 0) ? 1 : -1;
 
-        p.x += mx * WALK_X;
+        bool running = (g_runDir != 0 && mx != 0 && (mx > 0) == (g_runDir > 0));
+        p.x += mx * (running ? RUN_X : WALK_X);
         p.z = Clampf(p.z + mz * WALK_Z, BELT_TOP, BELT_BOT);
 
         bool moving = (mx != 0 || mz != 0);
-        if (moving && p.state != S_WALK) { p.state = S_WALK; p.anim = A_WALK; }
+        Anim wantAnim = running ? A_RUN : A_WALK;
+        if (moving && (p.state != S_WALK || p.anim != wantAnim)) {
+            p.state = S_WALK; p.anim = wantAnim;
+        }
         if (!moving && p.state != S_IDLE) { p.state = S_IDLE; p.anim = A_IDLE; p.animT = 0; }
+        if (running && moving && (int)(p.animT * 60) % 9 == 0) Dust(p.x, p.z, 1);
 
         if (bJump) {
             p.vy = JUMP_VY; p.state = S_JUMP; p.anim = A_JUMP;
@@ -616,6 +774,20 @@ static void UpdatePlay(bool bL, bool bR, bool bU, bool bD, bool bPunch, bool bJu
     int attackers = 0;
     for (auto& e : W.enemies) if (e.hasToken) attackers++;
     for (auto& e : W.enemies) UpdateEnemy(e, attackers);
+
+    int allyAttackers = 0;
+    for (auto& a : W.allies) UpdateAlly(a, allyAttackers);
+
+    // Enemies swing at whoever is closest, so your friends genuinely soak
+    // hits instead of being decoration you have to protect.
+    for (auto& e : W.enemies) {
+        if (!e.alive || e.state != S_ATTACK || e.hitLanded || e.ranged) continue;
+        if (e.stateT < e.atk.activeFrom || e.stateT > e.atk.activeTo) continue;
+        for (auto& a : W.allies) {
+            if (a.state == S_DOWN) continue;
+            if (InRange(e, a, e.atk)) { HurtAlly(a, e.atk, e.facing); e.hitLanded = true; break; }
+        }
+    }
 
     // ---- projectiles ----
     for (auto& b : W.shots) {
@@ -711,13 +883,15 @@ static void DrawWorld() {
     DrawBelt(W.camX, W.stateT);
 
     std::vector<const Fighter*> order;
-    order.reserve(W.enemies.size() + 1);
+    order.reserve(W.enemies.size() + W.allies.size() + 1);
     order.push_back(&W.player);
+    for (auto& a : W.allies)  order.push_back(&a);
     for (auto& e : W.enemies) order.push_back(&e);
     std::sort(order.begin(), order.end(),
               [](const Fighter* a, const Fighter* b) { return a->z < b->z; });
     for (auto* f : order) DrawFighter(*f, W.camX);
     for (auto& e : W.enemies) DrawHealthBarOver(e, W.camX);
+    for (auto& a : W.allies)  DrawHealthBarOver(a, W.camX);
 
     for (const auto& e : W.enemies)
         if (e.alive && e.state == S_ATTACK && e.anim == A_AIM) DrawAimLine(e, W.camX, W.stateT);
@@ -728,32 +902,41 @@ static void DrawWorld() {
     DrawRectangle(6, 6, 104, 8, { 0, 0, 0, 170 });
     DrawRectangle(7, 7, (int)(102 * (W.player.hp / (float)W.player.maxHp)), 6,
                   { 214, 60, 60, 255 });
-    DrawTextSh("REBEL", 7, 16, 10, RAYWHITE);
+    DrawUIText(TX_C_ME, 7, 15, 12);
     for (int i = 0; i < W.lives - 1; i++)
         DrawRectangle(48 + i * 7, 18, 5, 5, { 255, 200, 90, 255 });
 
     DrawTextSh(TextFormat("%07d", W.score), GAME_W - 62, 6, 10, RAYWHITE);
-    DrawTextSh(TextFormat("STAGE %d-%d", W.stage + 1, std::min(W.waveIdx + 1, s.waveCount)),
-               GAME_W - 62, 17, 10, { 255, 255, 255, 160 });
+    DrawUIText(TX_STAGE, GAME_W - 62, 17, 11, { 255, 255, 255, 190 });
+    DrawTextSh(TextFormat("%d-%d", W.stage + 1, std::min(W.waveIdx + 1, s.waveCount)),
+               GAME_W - 30, 17, 10, { 255, 255, 255, 170 });
 
     // boss bar â€” nearest boss only
-    const Fighter* boss = nullptr; float best = 1e9f;
-    for (const auto& e : W.enemies) {
-        if (!e.alive || !e.isBoss) continue;
-        float d = fabsf(e.x - W.player.x);
-        if (d < best) { best = d; boss = &e; }
-    }
-    if (boss) {
-        int bw = 210, bx = (GAME_W - bw) / 2;
-        DrawRectangle(bx - 1, 30, bw + 2, 8, { 0, 0, 0, 190 });
-        DrawRectangle(bx, 31, (int)(bw * (boss->hp / (float)boss->maxHp)), 6,
-                      { 205, 40, 40, 255 });
-        DrawTextC(s.bossName, GAME_W / 2, 20, 10, { 255, 175, 175, 235 });
+    // The finale has two bosses on the floor at once, so both get a bar —
+    // otherwise you cannot tell which one you are actually wearing down.
+    {
+        const Fighter* bs[2] = { nullptr, nullptr };
+        int nb = 0;
+        for (const auto& e : W.enemies) {
+            if (e.alive && e.isBoss && nb < 2) bs[nb++] = &e;
+        }
+        for (int i = 0; i < nb; i++) {
+            const char* nm = (bs[i]->kind == s.bossKind) ? s.bossName
+                           : (bs[i]->kind == CK_JALLAD)  ? "JALLAD" : "BOSS";
+            // sit below the player HUD, which occupies the top ~26px
+            int bw = (nb > 1) ? 140 : 200;
+            int bx = (nb > 1) ? (i == 0 ? 16 : GAME_W - bw - 16) : (GAME_W - bw) / 2;
+            int by = 44;
+            DrawRectangle(bx - 1, by, bw + 2, 8, { 0, 0, 0, 190 });
+            DrawRectangle(bx, by + 1, (int)(bw * (bs[i]->hp / (float)bs[i]->maxHp)), 6,
+                          { 205, 40, 40, 255 });
+            DrawTextSh(nm, bx, by - 11, 10, { 255, 175, 175, 235 });
+        }
     }
 
     // "GO ->" once a wave is cleared
     if (W.goTimer > 0 && (W.goTimer / 8) % 2) {
-        DrawTextC("GO", GAME_W - 46, GAME_H / 2 - 16, 20, { 255, 225, 90, 255 });
+        DrawUITextC(TX_GO, GAME_W - 60, GAME_H / 2 - 22, 16, { 255, 225, 90, 255 });
         for (int i = 0; i < 3; i++)
             DrawTriangle({ (float)GAME_W - 34 + i * 9, (float)GAME_H / 2 + 4 },
                          { (float)GAME_W - 34 + i * 9, (float)GAME_H / 2 + 14 },
@@ -761,7 +944,7 @@ static void DrawWorld() {
                          { 255, 225, 90, 255 });
     }
     if (W.camLock && W.goTimer == 0 && !W.bossOut)
-        DrawTextC("CLEAR THE STREET", GAME_W / 2, GAME_H - 16, 10, { 255, 255, 255, 120 });
+        DrawUITextC(TX_CLEAR_ST, GAME_W / 2, GAME_H - 18, 12, { 255, 255, 255, 160 });
 
     if (g_debug) {
         DrawTextSh(TextFormat("px%.0f cam%d wv%d/%d act%d spwn%d alive%d boss%d st%d",
@@ -786,73 +969,85 @@ static void DrawWorld() {
     }
 }
 
+// Per-stage Bangla name and subtitle images.
+static const int STAGE_TX[STAGE_COUNT]  = { TX_S_SHAHBAGH, TX_S_UTTARA, TX_S_JATRA, TX_S_GANA };
+static const int STAGESUB_TX[STAGE_COUNT] = { TX_SUB_SHAHBAGH, TX_SUB_UTTARA,
+                                              TX_SUB_JATRA, TX_SUB_GANA };
+
+// Bangla digits, so the score does not switch language mid-screen.
+static void DrawBnNumber(int v, float cx, float y, float h, Color tint) {
+    static const char* D[10] = { "০","১","২","৩","৪",
+                                 "৫","৬","৭","৮","৯" };
+    char buf[24]; snprintf(buf, sizeof(buf), "%d", v);
+    // Kalpurush is not loaded as a raylib font, so fall back to the built-in
+    // digits — Latin numerals are universally read in Bangladesh anyway.
+    (void)D;
+    int size = (int)h;
+    int w = MeasureText(buf, size);
+    DrawText(buf, (int)(cx - w / 2) + 1, (int)y + 1, size, { 0, 0, 0, 200 });
+    DrawText(buf, (int)(cx - w / 2), (int)y, size, tint);
+}
+
 static void DrawOverlay() {
-    const Stage& s = Cur();
+    (void)Cur();
+    const int SC2 = GAME_W / 2;
     switch (W.st) {
     case GS_TITLE:
-        DrawRectangle(0, 0, GAME_W, GAME_H, { 8, 10, 18, 190 });
-        DrawTextC("MARCH TO", GAME_W / 2, 46, 14, { 255, 255, 255, 200 });
-        DrawTextC("GANABHABAN", GAME_W / 2, 62, 28, RAYWHITE);
-        DrawRectangle(GAME_W / 2 - 60, 94, 120, 2, { 31, 143, 78, 255 });
-        DrawTextC("JULY 2024", GAME_W / 2, 102, 10, { 255, 209, 102, 255 });
-        if ((W.stateT / 30) % 2)
-            DrawTextC("PRESS J TO START", GAME_W / 2, GAME_H - 44, 12, RAYWHITE);
-        DrawTextC("ARROWS / WASD move    J punch    K jump",
-                  GAME_W / 2, GAME_H - 24, 10, { 255, 255, 255, 130 });
-        if (W.hiScore > 0)
-            DrawTextC(TextFormat("BEST %d", W.hiScore), GAME_W / 2, GAME_H - 12, 10,
-                      { 255, 255, 255, 110 });
+        DrawRectangle(0, 0, GAME_W, GAME_H, { 8, 10, 18, 195 });
+        DrawUITextC(TX_TITLE2, SC2, 28, 20);
+        DrawUITextC(TX_TITLE1, SC2, 48, 34);
+        DrawRectangle(SC2 - 60, 88, 120, 2, { 31, 143, 78, 255 });
+        DrawUITextC(TX_JULY, SC2, 94, 14);
+        if ((W.stateT / 30) % 2) DrawUITextC(TX_PRESS, SC2, GAME_W > 0 ? 132 : 132, 16);
+        DrawUITextC(TX_CONTROLS, SC2, GAME_H - 26, 11);
+        if (W.hiScore > 0) {
+            DrawUIText(TX_BEST, SC2 - 44, GAME_H - 14, 11);
+            DrawBnNumber(W.hiScore, SC2 + 22, GAME_H - 14, 11, { 255, 255, 255, 170 });
+        }
         break;
 
     case GS_INTRO: {
         float a = (W.stateT < 20) ? W.stateT / 20.0f
                 : (W.stateT > 100) ? fmaxf(0.0f, (130 - W.stateT) / 30.0f) : 1.0f;
-        DrawRectangle(0, 0, GAME_W, GAME_H, { 8, 10, 18, (unsigned char)(200 * a) });
-        DrawTextC(TextFormat("STAGE %d", W.stage + 1), GAME_W / 2, 78, 11,
-                  { 159, 224, 184, (unsigned char)(255 * a) });
-        DrawTextC(s.name, GAME_W / 2, 92, 24, { 255, 255, 255, (unsigned char)(255 * a) });
-        DrawTextC(s.sub, GAME_W / 2, 118, 10, { 255, 255, 255, (unsigned char)(180 * a) });
+        unsigned char A = (unsigned char)(255 * a);
+        DrawRectangle(0, 0, GAME_W, GAME_H, { 8, 10, 18, (unsigned char)(205 * a) });
+        DrawUIText(TX_STAGE, SC2 - 28, 74, 13, { 159, 224, 184, A });
+        DrawBnNumber(W.stage + 1, SC2 + 20, 74, 13, { 159, 224, 184, A });
+        DrawUITextC(STAGE_TX[W.stage], SC2, 90, 26, { 255, 255, 255, A });
+        DrawUITextC(STAGESUB_TX[W.stage], SC2, 120, 12, { 255, 255, 255, A });
         break;
     }
     case GS_CLEAR:
-        DrawRectangle(0, 0, GAME_W, GAME_H, { 8, 10, 18, 200 });
-        DrawTextC("LINE BROKEN", GAME_W / 2, 56, 22, RAYWHITE);
-        DrawTextC(TextFormat("%s has fallen", s.bossName), GAME_W / 2, 80, 10,
-                  { 255, 175, 175, 230 });
-        DrawTextC(TextFormat("SCORE  %d", W.score), GAME_W / 2, 108, 14,
-                  { 255, 209, 102, 255 });
+        DrawRectangle(0, 0, GAME_W, GAME_H, { 8, 10, 18, 205 });
+        DrawUITextC(TX_CLEARED, SC2, 46, 26);
+        DrawUITextC(TX_FALLEN, SC2, 78, 13, { 255, 179, 179, 235 });
+        DrawUIText(TX_SCORE, SC2 - 52, 100, 15, { 255, 209, 102, 255 });
+        DrawBnNumber(W.score, SC2 + 34, 100, 15, { 255, 209, 102, 255 });
         if (W.stateT > 60 && (W.stateT / 30) % 2)
-            DrawTextC(W.stage + 1 >= STAGE_COUNT ? "PRESS J" : "PRESS J TO MARCH ON",
-                      GAME_W / 2, GAME_H - 26, 11, RAYWHITE);
+            DrawUITextC(TX_NEXT, SC2, GAME_H - 28, 15);
         break;
 
     case GS_GAMEOVER:
         DrawRectangle(0, 0, GAME_W, GAME_H,
-                      { 20, 6, 10, (unsigned char)std::min(210, W.stateT * 4) });
-        DrawTextC("THE LINE HELD", GAME_W / 2, 62, 22, { 255, 110, 110, 255 });
-        DrawTextC(TextFormat("you fell at %s", s.name), GAME_W / 2, 86, 10,
-                  { 255, 255, 255, 170 });
-        DrawTextC(TextFormat("SCORE  %d", W.score), GAME_W / 2, 110, 14, RAYWHITE);
-        DrawTextC(TextFormat("BEST   %d", W.hiScore), GAME_W / 2, 126, 10,
-                  { 255, 255, 255, 150 });
+                      { 20, 6, 10, (unsigned char)std::min(212, W.stateT * 4) });
+        DrawUITextC(TX_GAMEOVER, SC2, 52, 28, { 255, 110, 110, 255 });
+        DrawUITextC(TX_DIEDAT, SC2, 84, 13, { 255, 255, 255, 180 });
+        DrawUIText(TX_SCORE, SC2 - 52, 104, 15, RAYWHITE);
+        DrawBnNumber(W.score, SC2 + 34, 104, 15, RAYWHITE);
         if (W.stateT > 90 && (W.stateT / 30) % 2)
-            DrawTextC("PRESS J", GAME_W / 2, GAME_H - 26, 11, RAYWHITE);
+            DrawUITextC(TX_RETRY, SC2, GAME_H - 28, 15);
         break;
 
-    case GS_VICTORY: {
-        DrawRectangle(0, 0, GAME_W, GAME_H, { 8, 20, 14, 200 });
-        DrawTextC("SHE IS GONE", GAME_W / 2, 40, 26, RAYWHITE);
-        DrawTextC("5 August 2024 - the gate is open", GAME_W / 2, 66, 10,
-                  { 159, 224, 184, 255 });
-        DrawTextC(TextFormat("FINAL SCORE  %d", W.score), GAME_W / 2, 92, 14,
-                  { 255, 209, 102, 255 });
-        const char* rank = RANKS[RANK_COUNT - 1].name;
-        for (int i = 0; i < RANK_COUNT; i++) if (W.score >= RANKS[i].at) { rank = RANKS[i].name; break; }
-        DrawTextC(rank, GAME_W / 2, 114, 18, RAYWHITE);
+    case GS_VICTORY:
+        DrawRectangle(0, 0, GAME_W, GAME_H, { 8, 20, 14, 205 });
+        DrawUITextC(TX_WIN1, SC2, 34, 32);
+        DrawUITextC(TX_WIN2, SC2, 72, 13, { 159, 224, 184, 255 });
+        DrawUIText(TX_FINALSCORE, SC2 - 74, 96, 15, { 255, 209, 102, 255 });
+        DrawBnNumber(W.score, SC2 + 34, 96, 15, { 255, 209, 102, 255 });
         if (W.stateT > 90 && (W.stateT / 30) % 2)
-            DrawTextC("PRESS J", GAME_W / 2, GAME_H - 24, 11, { 255, 255, 255, 210 });
+            DrawUITextC(TX_RETRY, SC2, GAME_H - 24, 15, { 255, 255, 255, 220 });
         break;
-    }
+
     default: break;
     }
 }
@@ -902,6 +1097,7 @@ int main(int argc, char** argv) {
     g_target = LoadRenderTexture(GAME_W, GAME_H);
     SetTextureFilter(g_target.texture, TEXTURE_FILTER_POINT);
 
+    LoadUIText();
     LoadCharacterSheet(CK_REBEL,    "assets/rebel.png");
     LoadCharacterSheet(CK_KADER,    "assets/kader.png");
     LoadCharacterSheet(CK_HASINA,   "assets/hasina.png");
@@ -909,6 +1105,8 @@ int main(int argc, char** argv) {
     LoadCharacterSheet(CK_CHHATRA,  "assets/chhatra.png");
     LoadCharacterSheet(CK_POLICE,   "assets/police.png");
     LoadCharacterSheet(CK_JALLAD,   "assets/jallad.png");
+    LoadCharacterSheet(CK_JITU,     "assets/jitu.png");
+    LoadCharacterSheet(CK_ANTOR,    "assets/antor.png");
 
     SpawnPlayer(60);
     LoadStageBackground(0);
@@ -931,6 +1129,7 @@ int main(int argc, char** argv) {
     while (!WindowShouldClose() && !g_quit) Frame();
 #endif
 
+    UnloadUIText();
     UnloadGameAudio();
     UnloadStageBackground();
     UnloadCharacterSheets();
@@ -1076,5 +1275,9 @@ static void Frame() {
         }
     }
 }
+
+
+
+
 
 

@@ -1,12 +1,12 @@
-// ============================================================
-//  Sprite sheets — loading and drawing your art
+﻿// ============================================================
+//  Sprite sheets â€” loading and drawing your art
 //
 //  Two things here are worth understanding:
 //
 //  1. PER-ANIMATION FALLBACK. On load we scan every cell for any
 //     non-transparent pixel. An animation counts as "painted"
 //     only when all of its frames have something in them. So a
-//     sheet with just idle and walk drawn works immediately —
+//     sheet with just idle and walk drawn works immediately â€”
 //     those use your art, everything else keeps using the
 //     placeholder skeleton. You never have a broken half-state.
 //
@@ -29,7 +29,7 @@ struct Sheet {
     int  painted = 0;
 };
 
-static Sheet g_sheets[8];
+static Sheet g_sheets[CK_COUNT];
 
 static void ScanPaintedFrames(Sheet& s, Image img, int kind) {
     // Force a known layout so we can read alpha bytes directly; GetImageColor
@@ -69,7 +69,7 @@ static void ScanPaintedFrames(Sheet& s, Image img, int kind) {
 }
 
 void LoadCharacterSheet(int palette, const char* path) {
-    if (palette < 0 || palette >= 8) return;
+    if (palette < 0 || palette >= CK_COUNT) return;
     Sheet& s = g_sheets[palette];
 
     if (!FileExists(path)) {
@@ -103,20 +103,20 @@ void LoadCharacterSheet(int palette, const char* path) {
 }
 
 void ReloadCharacterSheets() {
-    for (int i = 0; i < 8; i++)
+    for (int i = 0; i < CK_COUNT; i++)
         if (g_sheets[i].path[0]) LoadCharacterSheet(i, g_sheets[i].path);
 }
 
 void UnloadCharacterSheets() {
-    for (int i = 0; i < 8; i++)
+    for (int i = 0; i < CK_COUNT; i++)
         if (g_sheets[i].loaded) { UnloadTexture(g_sheets[i].tex); g_sheets[i].loaded = false; }
 }
 
-int  SheetPaintedCount(int palette) { return (palette >= 0 && palette < 8) ? g_sheets[palette].painted : 0; }
-bool SheetLoaded(int palette)       { return (palette >= 0 && palette < 8) && g_sheets[palette].loaded; }
+int  SheetPaintedCount(int palette) { return (palette >= 0 && palette < CK_COUNT) ? g_sheets[palette].painted : 0; }
+bool SheetLoaded(int palette)       { return (palette >= 0 && palette < CK_COUNT) && g_sheets[palette].loaded; }
 
 bool DrawFighterSprite(const Fighter& f, float sx, float sy) {
-    if (f.kind < 0 || f.kind >= 8) return false;
+    if (f.kind < 0 || f.kind >= CK_COUNT) return false;
     const Sheet& s = g_sheets[f.kind];
     if (!s.loaded || !s.animOK[f.anim]) return false;      // -> skeleton fallback
 
@@ -155,3 +155,4 @@ bool DrawFighterSprite(const Fighter& f, float sx, float sy) {
     DrawTexturePro(s.tex, src, dst, { 0, 0 }, 0.0f, WHITE);
     return true;
 }
+

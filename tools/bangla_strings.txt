@@ -1,0 +1,47 @@
+# Bangla UI strings.  id | text | pixel size | #RRGGBB[AA]
+# Edit the text here and re-run tools/make_bangla.ps1 — no code changes needed.
+# The id becomes a C++ enum name (TX_<id>), so keep it ASCII.
+
+TITLE1        | গণভবন | 46 | #FFFFFF
+TITLE2        | অভিমুখে যাত্রা | 30 | #FFFFFF
+JULY          | জুলাই ২০২৪ | 16 | #FFD166
+PRESS         | শুরু করতে J চাপুন | 18 | #FFFFFF
+BEST          | সর্বোচ্চ | 14 | #FFFFFF
+CONTROLS      | চলাচল: তীরচিহ্ন    ঘুষি: J    লাফ: K    দৌড়: দুইবার | 13 | #FFFFFF
+
+STAGE         | পর্ব | 16 | #9FE0B8
+CLEAR_ST      | রাস্তা পরিষ্কার করো | 15 | #FFFFFF
+GO            | এগিয়ে চলো | 22 | #FFE15A
+
+WIN1          | সে পালিয়েছে | 38 | #FFFFFF
+WIN2          | ৫ আগস্ট ২০২৪ - গেট খুলে গেছে | 16 | #9FE0B8
+SCORE         | স্কোর | 16 | #FFD166
+FINALSCORE    | চূড়ান্ত স্কোর | 16 | #FFD166
+
+CLEARED       | সারি ভেঙেছে | 30 | #FFFFFF
+FALLEN        | পরাজিত | 15 | #FFB3B3
+NEXT          | এগিয়ে যেতে J চাপুন | 16 | #FFFFFF
+
+GAMEOVER      | সারি টিকে গেল | 32 | #FF6E6E
+DIEDAT        | তুমি পড়ে গেছো | 15 | #FFFFFF
+RETRY         | আবার শুরু করতে J চাপুন | 16 | #FFFFFF
+
+S_SHAHBAGH    | শাহবাগ | 30 | #FFFFFF
+S_UTTARA      | উত্তরা | 30 | #FFFFFF
+S_JATRA       | যাত্রাবাড়ী | 30 | #FFFFFF
+S_GANA        | গণভবন | 30 | #FFFFFF
+
+SUB_SHAHBAGH  | প্রথম ব্যারিকেড | 14 | #FFFFFF
+SUB_UTTARA    | ইন্টারনেট বন্ধ | 14 | #FFFFFF
+SUB_JATRA     | হারাবার কিছু নেই | 14 | #FFFFFF
+SUB_GANA      | ৫ আগস্ট - গেট খোলা | 14 | #FFFFFF
+
+B_SADDAM      | সভাপতি সাদ্দাম | 20 | #FF9A9A
+B_HARUN       | ডিবি হারুন | 20 | #FF9A9A
+B_KADER       | কাউয়া কাদের | 20 | #FF9A9A
+B_HASINA      | শেখ হাসিনা | 20 | #FF9A9A
+B_JALLAD      | জল্লাদ | 20 | #FF9A9A
+
+C_ME          | নাফিস | 13 | #FFFFFF
+C_JITU        | জিতু | 13 | #9FD8FF
+C_ANTOR       | অন্তর | 13 | #FFD79F

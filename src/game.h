@@ -34,6 +34,12 @@ constexpr float BELT_BOT = 206.0f;
 // ---------- movement ----------
 constexpr float WALK_X   = 1.45f;
 constexpr float WALK_Z   = 0.85f;         // up/down deliberately slower than across
+
+// Running: double-tap left or right. Arcade brawlers use a tap-tap rather than
+// a hold button because you spend most of the game standing and hitting, and a
+// dedicated run key would sit unused under your thumb.
+constexpr float RUN_X       = 2.85f;
+constexpr int   RUN_TAP_GAP = 16;         // frames allowed between the two taps
 constexpr float GRAVITY  = 0.52f;
 constexpr float JUMP_VY  = 7.6f;
 
@@ -48,6 +54,7 @@ constexpr float JUMP_VY  = 7.6f;
 enum CharKind {
     CK_REBEL, CK_KADER, CK_HASINA, CK_DBPOLICE,
     CK_CHHATRA, CK_POLICE, CK_JALLAD,
+    CK_JITU, CK_ANTOR,          // the two allies who fight alongside you
     CK_COUNT
 };
 
@@ -150,19 +157,48 @@ constexpr AnimDef ANIMS_DBPOLICE[A_COUNT] = {
     /* VICTORY  */ { 21, 1,  4.0f, false },
 };
 
+// Jitu and Antor, 19 poses. Their sheets are missing RUN 2, so every frame
+// from PUNCH onward sits one index lower than the standard layout. Fixing it
+// in data costs nothing; redrawing the sheets would cost an afternoon.
+//   0 IDLE  1 IDLE(BREATH)  2..5 WALK  6 RUN1  7 RUN3  8 PUNCH  9 KICK
+//  10 JUMP 11 JUMP KICK    12 CROUCH  13 HURT 14 KNOCKED DOWN
+//  15..17 KNIFE ATTACK     18 VICTORY
+constexpr AnimDef ANIMS_ALLY[A_COUNT] = {
+    /* IDLE     */ {  0, 2,  3.0f, true  },
+    /* WALK     */ {  2, 4, 10.0f, true  },
+    /* RUN      */ {  6, 2, 11.0f, true  },
+    /* PUNCH1   */ {  8, 1, 12.0f, false },
+    /* PUNCH2   */ {  8, 1, 12.0f, false },
+    /* PUNCH3   */ {  9, 1, 10.0f, false },
+    /* KICK     */ {  9, 1, 10.0f, false },
+    /* JUMP     */ { 10, 1,  8.0f, false },
+    /* JUMPKICK */ { 11, 1, 10.0f, false },
+    /* HURT     */ { 13, 1, 10.0f, false },
+    /* DOWN     */ { 14, 1,  8.0f, false },
+    /* GETUP    */ { 12, 1,  8.0f, false },
+    /* SPECIAL  */ { 15, 3, 12.0f, false },
+    /* AIM      */ {  8, 1, 12.0f, false },
+    /* SHOOT    */ {  8, 1, 12.0f, false },
+    /* BLOCK    */ { 12, 1,  8.0f, false },
+    /* VICTORY  */ { 18, 1,  4.0f, false },
+};
+
 constexpr const AnimDef* CHAR_ANIMS[CK_COUNT] = {
     ANIMS_STD,       // CK_REBEL
     ANIMS_STD,       // CK_KADER
     ANIMS_HASINA,    // CK_HASINA
     ANIMS_DBPOLICE,  // CK_DBPOLICE
-    ANIMS_STD,       // CK_CHHATRA    (not drawn yet)
-    ANIMS_STD,       // CK_POLICE  (not drawn yet)
-    ANIMS_STD,       // CK_JALLAD   (not drawn yet)
+    ANIMS_STD,       // CK_CHHATRA
+    ANIMS_STD,       // CK_POLICE
+    ANIMS_STD,       // CK_JALLAD
+    ANIMS_ALLY,      // CK_JITU
+    ANIMS_ALLY,      // CK_ANTOR
 };
 
 // Names for the on-screen art-progress readout.
 constexpr const char* CHAR_NAMES[CK_COUNT] = {
-    "rebel", "kader", "hasina", "dbharun", "chhatra", "police", "jallad"
+    "rebel", "kader", "hasina", "dbharun", "chhatra", "police", "jallad",
+    "jitu", "antor"
 };
 
 inline const AnimDef& GetAnim(int kind, int anim) {
@@ -230,6 +266,7 @@ struct Fighter {
     int   palette = 0;               // skeleton colours, when no sheet is drawn
     int   kind = CK_REBEL;           // which sheet + animation table to use
     bool  isPlayer = false;
+    bool  isAlly = false;            // Jitu / Antor: fight for you, cannot be killed
     bool  isBoss = false;            // gets a named bar, never despawns, no flinch-shove
     bool  inArena = false;           // has walked on-screen; from then on he is fenced in
     int   age = 0;                   // frames since spawn, regardless of state changes
