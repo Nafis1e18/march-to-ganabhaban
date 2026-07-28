@@ -26,6 +26,12 @@ New-Item -ItemType Directory -Force -Path $out | Out-Null
 $FONT = "Kalpurush"
 $culture = [Globalization.CultureInfo]::GetCultureInfo("bn-BD")
 
+# Supersample. The sizes in bangla_strings.txt describe how big the text should
+# LOOK in the game; rendering at exactly that size gives Bengali matras and
+# dots barely a pixel each, and no amount of scaling afterwards puts detail
+# back. Baking 4x larger and letting the GPU scale down keeps them sharp.
+$SUPER = 4
+
 $lines = Get-Content (Join-Path $PSScriptRoot "bangla_strings.txt") -Encoding UTF8
 $rows = @()
 foreach ($ln in $lines) {
@@ -37,6 +43,7 @@ foreach ($ln in $lines) {
 }
 
 function Save-Text($id, $text, $size, $hex) {
+    $size = $size * $SUPER
     $tf = New-Object Windows.Media.Typeface($FONT)
     $brush = New-Object Windows.Media.SolidColorBrush(
                 [Windows.Media.ColorConverter]::ConvertFromString($hex))
@@ -50,15 +57,17 @@ function Save-Text($id, $text, $size, $hex) {
     }
     $ft = & $mk $brush
 
-    $pad = [int][Math]::Ceiling($size * 0.28) + 2
+    $pad = [int][Math]::Ceiling($size * 0.20) + $SUPER * 2
     $w = [int][Math]::Ceiling($ft.Width) + $pad * 2
     $h = [int][Math]::Ceiling($ft.Height) + $pad * 2
 
     $dv = New-Object Windows.Media.DrawingVisual
     $dc = $dv.RenderOpen()
-    # 8-way dark outline: the HUD sits over a bright daytime sky
-    foreach ($dx in -1, 0, 1) {
-        foreach ($dy in -1, 0, 1) {
+    # 8-way dark outline, offset by the supersample factor so it stays a
+    # roughly one-pixel rim once the image is scaled back down in game
+    $o = $SUPER
+    foreach ($dx in -$o, 0, $o) {
+        foreach ($dy in -$o, 0, $o) {
             if ($dx -eq 0 -and $dy -eq 0) { continue }
             $dc.DrawText((& $mk $shadow),
                 (New-Object Windows.Point(($pad + $dx), ($pad + $dy))))

@@ -981,12 +981,12 @@ static void DrawWorld() {
     DrawRectangle(6, 6, 104, 8, { 0, 0, 0, 170 });
     DrawRectangle(7, 7, (int)(102 * (W.player.hp / (float)W.player.maxHp)), 6,
                   { 214, 60, 60, 255 });
-    DrawUIText(TX_C_ME, 7, 15, 12);
+    DrawUIText(TX_C_ME, 7, 14, 15);
     for (int i = 0; i < W.lives - 1; i++)
         DrawRectangle(48 + i * 7, 18, 5, 5, { 255, 200, 90, 255 });
 
     DrawTextSh(TextFormat("%07d", W.score), GAME_W - 62, 6, 10, RAYWHITE);
-    DrawUIText(TX_STAGE, GAME_W - 62, 17, 11, { 255, 255, 255, 190 });
+    DrawUIText(TX_STAGE, GAME_W - 64, 16, 14, { 255, 255, 255, 200 });
     DrawTextSh(TextFormat("%d-%d", W.stage + 1, std::min(W.waveIdx + 1, s.waveCount)),
                GAME_W - 30, 17, 10, { 255, 255, 255, 170 });
 
@@ -1015,7 +1015,7 @@ static void DrawWorld() {
 
     // "GO ->" once a wave is cleared
     if (W.goTimer > 0 && (W.goTimer / 8) % 2) {
-        DrawUITextC(TX_GO, GAME_W - 60, GAME_H / 2 - 22, 16, { 255, 225, 90, 255 });
+        DrawUITextC(TX_GO, GAME_W - 62, GAME_H / 2 - 24, 21, { 255, 225, 90, 255 });
         for (int i = 0; i < 3; i++)
             DrawTriangle({ (float)GAME_W - 34 + i * 9, (float)GAME_H / 2 + 4 },
                          { (float)GAME_W - 34 + i * 9, (float)GAME_H / 2 + 14 },
@@ -1023,7 +1023,7 @@ static void DrawWorld() {
                          { 255, 225, 90, 255 });
     }
     if (W.camLock && W.goTimer == 0 && !W.bossOut)
-        DrawUITextC(TX_CLEAR_ST, GAME_W / 2, GAME_H - 18, 12, { 255, 255, 255, 160 });
+        DrawUITextC(TX_CLEAR_ST, GAME_W / 2, GAME_H - 20, 16, { 255, 255, 255, 190 });
 
     if (g_debug) {
         DrawTextSh(TextFormat("px%.0f cam%d wv%d/%d act%d spwn%d alive%d boss%d st%d",
@@ -1081,26 +1081,26 @@ static void DrawOverlay() {
         int pg = std::min(W.storyPage, STORY_PAGES - 1);
         float in  = fminf(1.0f, W.stateT / 22.0f);
         unsigned char A = (unsigned char)(255 * in);
-        DrawUITextC(STORY[pg].a, SC2, 82, 17, { 255, 255, 255, A });
-        DrawUITextC(STORY[pg].b, SC2, 112, 14, { 255, 255, 255, A });
+        DrawUITextC(STORY[pg].a, SC2, 74, 24, { 255, 255, 255, A });
+        DrawUITextC(STORY[pg].b, SC2, 108, 18, { 255, 255, 255, A });
         // page pips, so you can see how much is left
         for (int i = 0; i < STORY_PAGES; i++)
             UIRect(SC2 - 22 + i * 10, 148, 6, 2,
                    i == pg ? Color{ 255, 209, 102, 255 } : Color{ 255, 255, 255, 70 });
         if (W.stateT > 40 && (W.stateT / 26) % 2)
-            DrawUITextC(TX_SKIP, SC2, GAME_H - 26, 12);
+            DrawUITextC(TX_SKIP, SC2, GAME_H - 26, 15);
         break;
     }
     case GS_TITLE:
         UIRect(0, 0, GAME_W, GAME_H, { 8, 10, 18, 195 });
-        DrawUITextC(TX_TITLE2, SC2, 28, 20);
-        DrawUITextC(TX_TITLE1, SC2, 48, 34);
+        DrawUITextC(TX_TITLE2, SC2, 24, 26);
+        DrawUITextC(TX_TITLE1, SC2, 50, 44);
         UIRect(SC2 - 60, 88, 120, 2, { 31, 143, 78, 255 });
-        DrawUITextC(TX_JULY, SC2, 94, 14);
-        if ((W.stateT / 30) % 2) DrawUITextC(TX_PRESS, SC2, GAME_W > 0 ? 132 : 132, 16);
-        DrawUITextC(TX_CONTROLS, SC2, GAME_H - 26, 11);
+        DrawUITextC(TX_JULY, SC2, 98, 18);
+        if ((W.stateT / 30) % 2) DrawUITextC(TX_PRESS, SC2, 132, 21);
+        DrawUITextC(TX_CONTROLS, SC2, GAME_H - 24, 14);
         if (W.hiScore > 0) {
-            DrawUIText(TX_BEST, SC2 - 44, GAME_H - 14, 11);
+            DrawUIText(TX_BEST, SC2 - 48, GAME_H - 13, 13);
             DrawBnNumber(W.hiScore, SC2 + 22, GAME_H - 14, 11, { 255, 255, 255, 170 });
         }
         break;
@@ -1110,40 +1110,40 @@ static void DrawOverlay() {
                 : (W.stateT > 100) ? fmaxf(0.0f, (130 - W.stateT) / 30.0f) : 1.0f;
         unsigned char A = (unsigned char)(255 * a);
         UIRect(0, 0, GAME_W, GAME_H, { 8, 10, 18, (unsigned char)(205 * a) });
-        DrawUIText(TX_STAGE, SC2 - 28, 74, 13, { 159, 224, 184, A });
-        DrawBnNumber(W.stage + 1, SC2 + 20, 74, 13, { 159, 224, 184, A });
-        DrawUITextC(STAGE_TX[W.stage], SC2, 90, 26, { 255, 255, 255, A });
-        DrawUITextC(STAGESUB_TX[W.stage], SC2, 120, 12, { 255, 255, 255, A });
+        DrawUIText(TX_STAGE, SC2 - 30, 70, 17, { 159, 224, 184, A });
+        DrawBnNumber(W.stage + 1, SC2 + 24, 70, 17, { 159, 224, 184, A });
+        DrawUITextC(STAGE_TX[W.stage], SC2, 92, 34, { 255, 255, 255, A });
+        DrawUITextC(STAGESUB_TX[W.stage], SC2, 130, 16, { 255, 255, 255, A });
         break;
     }
     case GS_CLEAR:
         UIRect(0, 0, GAME_W, GAME_H, { 8, 10, 18, 205 });
-        DrawUITextC(TX_CLEARED, SC2, 46, 26);
-        DrawUITextC(TX_FALLEN, SC2, 78, 13, { 255, 179, 179, 235 });
+        DrawUITextC(TX_CLEARED, SC2, 42, 34);
+        DrawUITextC(TX_FALLEN, SC2, 80, 18, { 255, 179, 179, 235 });
         DrawUIText(TX_SCORE, SC2 - 52, 100, 15, { 255, 209, 102, 255 });
         DrawBnNumber(W.score, SC2 + 34, 100, 15, { 255, 209, 102, 255 });
         if (W.stateT > 60 && (W.stateT / 30) % 2)
-            DrawUITextC(TX_NEXT, SC2, GAME_H - 28, 15);
+            DrawUITextC(TX_NEXT, SC2, GAME_H - 30, 19);
         break;
 
     case GS_GAMEOVER:
         UIRect(0, 0, GAME_W, GAME_H, { 20, 6, 10, (unsigned char)std::min(212, W.stateT * 4) });
-        DrawUITextC(TX_GAMEOVER, SC2, 52, 28, { 255, 110, 110, 255 });
-        DrawUITextC(TX_DIEDAT, SC2, 84, 13, { 255, 255, 255, 180 });
+        DrawUITextC(TX_GAMEOVER, SC2, 48, 36, { 255, 110, 110, 255 });
+        DrawUITextC(TX_DIEDAT, SC2, 88, 18, { 255, 255, 255, 180 });
         DrawUIText(TX_SCORE, SC2 - 52, 104, 15, RAYWHITE);
         DrawBnNumber(W.score, SC2 + 34, 104, 15, RAYWHITE);
         if (W.stateT > 90 && (W.stateT / 30) % 2)
-            DrawUITextC(TX_RETRY, SC2, GAME_H - 28, 15);
+            DrawUITextC(TX_RETRY, SC2, GAME_H - 30, 19);
         break;
 
     case GS_VICTORY:
         UIRect(0, 0, GAME_W, GAME_H, { 8, 20, 14, 205 });
-        DrawUITextC(TX_WIN1, SC2, 34, 32);
-        DrawUITextC(TX_WIN2, SC2, 72, 13, { 159, 224, 184, 255 });
+        DrawUITextC(TX_WIN1, SC2, 30, 40);
+        DrawUITextC(TX_WIN2, SC2, 74, 18, { 159, 224, 184, 255 });
         DrawUIText(TX_FINALSCORE, SC2 - 74, 96, 15, { 255, 209, 102, 255 });
         DrawBnNumber(W.score, SC2 + 34, 96, 15, { 255, 209, 102, 255 });
         if (W.stateT > 90 && (W.stateT / 30) % 2)
-            DrawUITextC(TX_RETRY, SC2, GAME_H - 24, 15, { 255, 255, 255, 220 });
+            DrawUITextC(TX_RETRY, SC2, GAME_H - 26, 19, { 255, 255, 255, 220 });
         break;
 
     default: break;
@@ -1393,6 +1393,7 @@ static void Frame() {
         }
     }
 }
+
 
 
 

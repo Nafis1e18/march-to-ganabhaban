@@ -55,7 +55,7 @@ enum TextId {
     TX_COUNT
 };
 
-__attribute__((unused)) static const char* TEXT_FILES[TX_COUNT] = {
+static const char* TEXT_FILES[TX_COUNT] = {
     "assets/text/TITLE1.png",
     "assets/text/TITLE2.png",
     "assets/text/JULY.png",
@@ -104,4 +104,3 @@ __attribute__((unused)) static const char* TEXT_FILES[TX_COUNT] = {
     "assets/text/SKIP.png",
     "assets/text/ESCAPE.png",
 };
-
