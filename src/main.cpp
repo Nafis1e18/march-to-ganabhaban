@@ -981,12 +981,14 @@ static void DrawWorld() {
     DrawRectangle(6, 6, 104, 8, { 0, 0, 0, 170 });
     DrawRectangle(7, 7, (int)(102 * (W.player.hp / (float)W.player.maxHp)), 6,
                   { 214, 60, 60, 255 });
-    DrawUIText(TX_C_ME, 7, 14, 15);
+    // (Bangla HUD labels are drawn later, in DrawHUDText, at window
+    //  resolution — inside this low-res buffer they get resampled twice
+    //  and Bengali turns to mush.)
     for (int i = 0; i < W.lives - 1; i++)
         DrawRectangle(48 + i * 7, 18, 5, 5, { 255, 200, 90, 255 });
 
     DrawTextSh(TextFormat("%07d", W.score), GAME_W - 62, 6, 10, RAYWHITE);
-    DrawUIText(TX_STAGE, GAME_W - 64, 16, 14, { 255, 255, 255, 200 });
+
     DrawTextSh(TextFormat("%d-%d", W.stage + 1, std::min(W.waveIdx + 1, s.waveCount)),
                GAME_W - 30, 17, 10, { 255, 255, 255, 170 });
 
@@ -1009,13 +1011,13 @@ static void DrawWorld() {
             DrawRectangle(bx - 1, by, bw + 2, 8, { 0, 0, 0, 190 });
             DrawRectangle(bx, by + 1, (int)(bw * (bs[i]->hp / (float)bs[i]->maxHp)), 6,
                           { 205, 40, 40, 255 });
-            DrawTextSh(nm, bx, by - 11, 10, { 255, 175, 175, 235 });
+            (void)nm;
         }
     }
 
     // "GO ->" once a wave is cleared
     if (W.goTimer > 0 && (W.goTimer / 8) % 2) {
-        DrawUITextC(TX_GO, GAME_W - 62, GAME_H / 2 - 24, 21, { 255, 225, 90, 255 });
+
         for (int i = 0; i < 3; i++)
             DrawTriangle({ (float)GAME_W - 34 + i * 9, (float)GAME_H / 2 + 4 },
                          { (float)GAME_W - 34 + i * 9, (float)GAME_H / 2 + 14 },
@@ -1023,7 +1025,7 @@ static void DrawWorld() {
                          { 255, 225, 90, 255 });
     }
     if (W.camLock && W.goTimer == 0 && !W.bossOut)
-        DrawUITextC(TX_CLEAR_ST, GAME_W / 2, GAME_H - 20, 16, { 255, 255, 255, 190 });
+
 
     if (g_debug) {
         DrawTextSh(TextFormat("px%.0f cam%d wv%d/%d act%d spwn%d alive%d boss%d st%d",
@@ -1070,6 +1072,39 @@ static void DrawBnNumber(int v, float cx, float y, float h, Color tint) {
     int px = (int)(cx * SCALE) - w / 2, py = (int)(y * SCALE);
     DrawText(buf, px + 2, py + 2, size, { 0, 0, 0, 200 });
     DrawText(buf, px, py, size, tint);
+}
+
+// Bangla labels that sit over the playfield. Drawn in the post-upscale pass at
+// window resolution, for the same reason as the menus: one resample, not two.
+static const int BOSS_TX[STAGE_COUNT] = { TX_B_SADDAM, TX_B_HARUN,
+                                          TX_B_KADER, TX_B_HASINA };
+
+static void DrawHUDText() {
+    const Stage& s = Cur();
+    if (W.st != GS_PLAY && W.st != GS_INTRO) return;
+
+    DrawUIText(TX_C_ME, 7, 14, 15);
+    DrawUIText(TX_STAGE, GAME_W - 64, 15, 15, { 255, 255, 255, 210 });
+
+    // boss names, in Bangla
+    {
+        const Fighter* bs[2] = { nullptr, nullptr };
+        int nb = 0;
+        for (const auto& e : W.enemies)
+            if (e.alive && e.isBoss && nb < 2) bs[nb++] = &e;
+        for (int i = 0; i < nb; i++) {
+            int tx = (bs[i]->kind == CK_JALLAD && bs[i]->kind != s.bossKind)
+                     ? TX_B_JALLAD : BOSS_TX[W.stage];
+            int bw = (nb > 1) ? 140 : 200;
+            int bx = (nb > 1) ? (i == 0 ? 16 : GAME_W - bw - 16) : (GAME_W - bw) / 2;
+            DrawUIText(tx, bx, 30, 15, { 255, 175, 175, 240 });
+        }
+    }
+
+    if (W.goTimer > 0 && (W.goTimer / 8) % 2)
+        DrawUITextC(TX_GO, GAME_W - 62, GAME_H / 2 - 26, 22, { 255, 225, 90, 255 });
+    if (W.camLock && W.goTimer == 0 && !W.bossOut)
+        DrawUITextC(TX_CLEAR_ST, GAME_W / 2, GAME_H - 22, 17, { 255, 255, 255, 210 });
 }
 
 static void DrawOverlay() {
@@ -1383,6 +1418,7 @@ static void Frame() {
             // Text goes on AFTER the upscale, at window resolution, so Bangla
             // is resampled once instead of twice and stays legible.
             SetUIScale((float)SCALE);
+            DrawHUDText();
             DrawOverlay();
             SetUIScale(1.0f);
         EndDrawing();
@@ -1393,6 +1429,7 @@ static void Frame() {
         }
     }
 }
+
 
 
 
