@@ -1,4 +1,4 @@
-# Bangla UI strings.  id | text | pixel size | #RRGGBB[AA]
+﻿# Bangla UI strings.  id | text | pixel size | #RRGGBB[AA]
 # Edit the text here and re-run tools/make_bangla.ps1 — no code changes needed.
 # The id becomes a C++ enum name (TX_<id>), so keep it ASCII.
 
@@ -28,12 +28,12 @@ RETRY         | আবার শুরু করতে J চাপুন | 16 | 
 
 S_SHAHBAGH    | শাহবাগ | 30 | #FFFFFF
 S_UTTARA      | উত্তরা | 30 | #FFFFFF
-S_JATRA       | যাত্রাবাড়ী | 30 | #FFFFFF
+S_RAMPURA     | রামপুরা | 30 | #FFFFFF
 S_GANA        | গণভবন | 30 | #FFFFFF
 
 SUB_SHAHBAGH  | প্রথম ব্যারিকেড | 14 | #FFFFFF
 SUB_UTTARA    | ইন্টারনেট বন্ধ | 14 | #FFFFFF
-SUB_JATRA     | হারাবার কিছু নেই | 14 | #FFFFFF
+SUB_RAMPURA   | সেতু আটকে আছে | 14 | #FFFFFF
 SUB_GANA      | ৫ আগস্ট - গেট খোলা | 14 | #FFFFFF
 
 B_SADDAM      | সভাপতি সাদ্দাম | 20 | #FF9A9A

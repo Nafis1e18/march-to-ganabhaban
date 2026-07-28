@@ -8,6 +8,10 @@
 void  LoadUIText();
 void  UnloadUIText();
 
+// Coordinates stay in 384x224 game space; this scales them to window pixels so
+// text can be drawn AFTER the world is upscaled and is resampled only once.
+void  SetUIScale(float s);
+
 // `h` is the height to draw at, in game pixels; width follows the aspect.
 void  DrawUIText (int id, float x,  float y, float h, Color tint = WHITE);
 void  DrawUITextC(int id, float cx, float y, float h, Color tint = WHITE);

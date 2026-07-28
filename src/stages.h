@@ -91,7 +91,7 @@ constexpr Stage STAGES[STAGE_COUNT] = {
         -1, 0.0f
     },
     // --------------------------- 2 ---------------------------
-    {   "UTTARA", "they cut the internet", 2,
+    {   "UTTARA", "they cut the internet", 1,
         {
             { 340,  4, 3, { CK_CHHATRA, CK_POLICE }, 2 },
             { 760,  5, 3, { CK_POLICE, CK_DBPOLICE }, 2 },
@@ -102,7 +102,7 @@ constexpr Stage STAGES[STAGE_COUNT] = {
         -1, 0.0f
     },
     // --------------------------- 3 ---------------------------
-    {   "JATRABARI", "nothing left to lose", 3,
+    {   "RAMPURA", "the bridge holds", 2,
         {
             { 340,  5, 3, { CK_POLICE, CK_CHHATRA }, 2 },
             { 780,  5, 3, { CK_JALLAD, CK_POLICE }, 2 },
@@ -115,7 +115,7 @@ constexpr Stage STAGES[STAGE_COUNT] = {
     // --------------------------- 4 ---------------------------
     // The finale: Hasina AND Jallad on the floor together. `bossExtraKind`
     // spawns the second one beside her, so it is a genuine two-on-three.
-    {   "GANABHABAN", "5 August - the gate is open", 4,
+    {   "GANABHABAN", "5 August - the gate is open", 3,
         {
             { 340,  5, 3, { CK_DBPOLICE, CK_POLICE }, 2 },
             { 800,  6, 4, { CK_JALLAD, CK_DBPOLICE }, 2 },
@@ -144,4 +144,5 @@ constexpr Rank RANKS[] = {
     {      0, "BYSTANDER"   },
 };
 constexpr int RANK_COUNT = 5;
+
 

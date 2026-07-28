@@ -970,22 +970,27 @@ static void DrawWorld() {
 }
 
 // Per-stage Bangla name and subtitle images.
-static const int STAGE_TX[STAGE_COUNT]  = { TX_S_SHAHBAGH, TX_S_UTTARA, TX_S_JATRA, TX_S_GANA };
+static const int STAGE_TX[STAGE_COUNT]  = { TX_S_SHAHBAGH, TX_S_UTTARA, TX_S_RAMPURA, TX_S_GANA };
 static const int STAGESUB_TX[STAGE_COUNT] = { TX_SUB_SHAHBAGH, TX_SUB_UTTARA,
-                                              TX_SUB_JATRA, TX_SUB_GANA };
+                                              TX_SUB_RAMPURA, TX_SUB_GANA };
 
-// Bangla digits, so the score does not switch language mid-screen.
+// The overlay is drawn in the post-upscale pass, so everything in it takes
+// game-space coordinates and multiplies up to window pixels here.
+static void UIRect(float x, float y, float w, float h, Color c) {
+    DrawRectangle((int)(x * SCALE), (int)(y * SCALE),
+                  (int)(w * SCALE), (int)(h * SCALE), c);
+}
+
+// Latin numerals: universally read in Bangladesh, and loading Kalpurush into
+// raylib properly would mean shipping the font and a codepoint table for a
+// handful of digits.
 static void DrawBnNumber(int v, float cx, float y, float h, Color tint) {
-    static const char* D[10] = { "০","১","২","৩","৪",
-                                 "৫","৬","৭","৮","৯" };
     char buf[24]; snprintf(buf, sizeof(buf), "%d", v);
-    // Kalpurush is not loaded as a raylib font, so fall back to the built-in
-    // digits — Latin numerals are universally read in Bangladesh anyway.
-    (void)D;
-    int size = (int)h;
+    int size = (int)(h * SCALE);
     int w = MeasureText(buf, size);
-    DrawText(buf, (int)(cx - w / 2) + 1, (int)y + 1, size, { 0, 0, 0, 200 });
-    DrawText(buf, (int)(cx - w / 2), (int)y, size, tint);
+    int px = (int)(cx * SCALE) - w / 2, py = (int)(y * SCALE);
+    DrawText(buf, px + 2, py + 2, size, { 0, 0, 0, 200 });
+    DrawText(buf, px, py, size, tint);
 }
 
 static void DrawOverlay() {
@@ -993,10 +998,10 @@ static void DrawOverlay() {
     const int SC2 = GAME_W / 2;
     switch (W.st) {
     case GS_TITLE:
-        DrawRectangle(0, 0, GAME_W, GAME_H, { 8, 10, 18, 195 });
+        UIRect(0, 0, GAME_W, GAME_H, { 8, 10, 18, 195 });
         DrawUITextC(TX_TITLE2, SC2, 28, 20);
         DrawUITextC(TX_TITLE1, SC2, 48, 34);
-        DrawRectangle(SC2 - 60, 88, 120, 2, { 31, 143, 78, 255 });
+        UIRect(SC2 - 60, 88, 120, 2, { 31, 143, 78, 255 });
         DrawUITextC(TX_JULY, SC2, 94, 14);
         if ((W.stateT / 30) % 2) DrawUITextC(TX_PRESS, SC2, GAME_W > 0 ? 132 : 132, 16);
         DrawUITextC(TX_CONTROLS, SC2, GAME_H - 26, 11);
@@ -1010,7 +1015,7 @@ static void DrawOverlay() {
         float a = (W.stateT < 20) ? W.stateT / 20.0f
                 : (W.stateT > 100) ? fmaxf(0.0f, (130 - W.stateT) / 30.0f) : 1.0f;
         unsigned char A = (unsigned char)(255 * a);
-        DrawRectangle(0, 0, GAME_W, GAME_H, { 8, 10, 18, (unsigned char)(205 * a) });
+        UIRect(0, 0, GAME_W, GAME_H, { 8, 10, 18, (unsigned char)(205 * a) });
         DrawUIText(TX_STAGE, SC2 - 28, 74, 13, { 159, 224, 184, A });
         DrawBnNumber(W.stage + 1, SC2 + 20, 74, 13, { 159, 224, 184, A });
         DrawUITextC(STAGE_TX[W.stage], SC2, 90, 26, { 255, 255, 255, A });
@@ -1018,7 +1023,7 @@ static void DrawOverlay() {
         break;
     }
     case GS_CLEAR:
-        DrawRectangle(0, 0, GAME_W, GAME_H, { 8, 10, 18, 205 });
+        UIRect(0, 0, GAME_W, GAME_H, { 8, 10, 18, 205 });
         DrawUITextC(TX_CLEARED, SC2, 46, 26);
         DrawUITextC(TX_FALLEN, SC2, 78, 13, { 255, 179, 179, 235 });
         DrawUIText(TX_SCORE, SC2 - 52, 100, 15, { 255, 209, 102, 255 });
@@ -1028,8 +1033,7 @@ static void DrawOverlay() {
         break;
 
     case GS_GAMEOVER:
-        DrawRectangle(0, 0, GAME_W, GAME_H,
-                      { 20, 6, 10, (unsigned char)std::min(212, W.stateT * 4) });
+        UIRect(0, 0, GAME_W, GAME_H, { 20, 6, 10, (unsigned char)std::min(212, W.stateT * 4) });
         DrawUITextC(TX_GAMEOVER, SC2, 52, 28, { 255, 110, 110, 255 });
         DrawUITextC(TX_DIEDAT, SC2, 84, 13, { 255, 255, 255, 180 });
         DrawUIText(TX_SCORE, SC2 - 52, 104, 15, RAYWHITE);
@@ -1039,7 +1043,7 @@ static void DrawOverlay() {
         break;
 
     case GS_VICTORY:
-        DrawRectangle(0, 0, GAME_W, GAME_H, { 8, 20, 14, 205 });
+        UIRect(0, 0, GAME_W, GAME_H, { 8, 20, 14, 205 });
         DrawUITextC(TX_WIN1, SC2, 34, 32);
         DrawUITextC(TX_WIN2, SC2, 72, 13, { 159, 224, 184, 255 });
         DrawUIText(TX_FINALSCORE, SC2 - 74, 96, 15, { 255, 209, 102, 255 });
@@ -1257,7 +1261,6 @@ static void Frame() {
             if (W.flash > 0)
                 DrawRectangle(0, 0, GAME_W, GAME_H,
                               { 255, 255, 255, (unsigned char)(W.flash * 190) });
-            DrawOverlay();
             DrawTouchUI();
         EndTextureMode();
 
@@ -1267,6 +1270,11 @@ static void Frame() {
                 { 0, 0, (float)GAME_W, -(float)GAME_H },
                 { 0, 0, (float)(GAME_W * SCALE), (float)(GAME_H * SCALE) },
                 { 0, 0 }, 0.0f, WHITE);
+            // Text goes on AFTER the upscale, at window resolution, so Bangla
+            // is resampled once instead of twice and stays legible.
+            SetUIScale((float)SCALE);
+            DrawOverlay();
+            SetUIScale(1.0f);
         EndDrawing();
 
         if (g_shotAt >= 0 && frameNo >= g_shotAt) {
@@ -1275,6 +1283,8 @@ static void Frame() {
         }
     }
 }
+
+
 
 
 

@@ -26,11 +26,11 @@ enum TextId {
     TX_RETRY,
     TX_S_SHAHBAGH,
     TX_S_UTTARA,
-    TX_S_JATRA,
+    TX_S_RAMPURA,
     TX_S_GANA,
     TX_SUB_SHAHBAGH,
     TX_SUB_UTTARA,
-    TX_SUB_JATRA,
+    TX_SUB_RAMPURA,
     TX_SUB_GANA,
     TX_B_SADDAM,
     TX_B_HARUN,
@@ -43,7 +43,7 @@ enum TextId {
     TX_COUNT
 };
 
-__attribute__((unused)) static const char* TEXT_FILES[TX_COUNT] = {
+static const char* TEXT_FILES[TX_COUNT] = {
     "assets/text/TITLE1.png",
     "assets/text/TITLE2.png",
     "assets/text/JULY.png",
@@ -65,11 +65,11 @@ __attribute__((unused)) static const char* TEXT_FILES[TX_COUNT] = {
     "assets/text/RETRY.png",
     "assets/text/S_SHAHBAGH.png",
     "assets/text/S_UTTARA.png",
-    "assets/text/S_JATRA.png",
+    "assets/text/S_RAMPURA.png",
     "assets/text/S_GANA.png",
     "assets/text/SUB_SHAHBAGH.png",
     "assets/text/SUB_UTTARA.png",
-    "assets/text/SUB_JATRA.png",
+    "assets/text/SUB_RAMPURA.png",
     "assets/text/SUB_GANA.png",
     "assets/text/B_SADDAM.png",
     "assets/text/B_HARUN.png",
@@ -80,4 +80,3 @@ __attribute__((unused)) static const char* TEXT_FILES[TX_COUNT] = {
     "assets/text/C_JITU.png",
     "assets/text/C_ANTOR.png",
 };
-
