@@ -36,6 +36,7 @@ static void DrawTextC(const char* t, int cx, int y, int size, Color c) {
 static float Clampf(float v, float a, float b) { return v < a ? a : (v > b ? b : v); }
 
 static bool g_debug = false;   // --debug: overlay the wave/flow state
+static Texture2D g_heli{};     // the escape helicopter, drawn straight from its sheet
 
 // ============================================================
 //  Touch controls
@@ -103,7 +104,17 @@ static void DrawTouchUI() {
 // ============================================================
 //  World
 // ============================================================
-enum GameState { GS_TITLE, GS_INTRO, GS_PLAY, GS_CLEAR, GS_GAMEOVER, GS_VICTORY };
+enum GameState { GS_TITLE, GS_STORY, GS_INTRO, GS_PLAY, GS_CLEAR, GS_GAMEOVER, GS_VICTORY };
+
+// Story intro: five pages of two short lines. Long paragraphs are unreadable
+// at 384x224, so the text is cut down to what fits on one screen at a time.
+struct StoryPage { int a, b; };
+static const StoryPage STORY[] = {
+    { TX_ST1A, TX_ST1B }, { TX_ST2A, TX_ST2B }, { TX_ST3A, TX_ST3B },
+    { TX_ST4A, TX_ST4B }, { TX_ST5A, TX_ST5B },
+};
+static constexpr int STORY_PAGES = 5;
+static constexpr int STORY_HOLD  = 190;   // frames a page stays before auto-advance
 
 struct World {
     GameState st = GS_TITLE;
@@ -126,6 +137,11 @@ struct World {
     bool  bossOut = false;
     bool  bossDead = false;
     int   goTimer = 0;          // "GO ->" flash after clearing a wave
+    int   storyPage = 0;
+
+    // Hasina's escape: at 5% health the helicopter comes for her.
+    int   heliT = 0;            // 0 = not started, otherwise frames elapsed
+    float heliX = 0, heliY = 0;
 
     int   lives = START_LIVES;
     int   score = 0;
@@ -310,7 +326,7 @@ static Fighter MakeAlly(int kind, float x, float z) {
     a.kind = kind;
     a.palette = (kind == CK_JITU) ? PAL_CHHATRA : PAL_POLICE;
     a.x = x; a.z = z;
-    a.hp = a.maxHp = 70;
+    a.hp = a.maxHp = 70; a.lives = 2;
     a.height = 46;
     a.facing = 1;
     a.isAlly = true;
@@ -564,8 +580,14 @@ static void UpdateAlly(Fighter& a, int& allyAttackers) {
 
     if (a.state == S_DOWN) {
         if (a.y > 0 || a.vy > 0) { a.y += a.vy; a.vy -= GRAVITY; if (a.y < 0) { a.y = 0; a.vy = 0; } }
-        if (a.stateT >= 150) {                       // back on his feet
-            a.hp = a.maxHp; a.invuln = 70;
+        // Out of revives means out of the fight. If both friends go down you
+        // finish the march alone, which is the whole point of them having
+        // lives rather than being invincible scenery.
+        if (a.outCold) return;
+        if (a.stateT >= 150) {
+            a.lives--;
+            if (a.lives < 0) { a.outCold = true; return; }
+            a.hp = a.maxHp; a.invuln = 80;
             a.state = S_GETUP; a.anim = A_GETUP; a.stateT = 0; a.animT = 0;
         }
         return;
@@ -845,7 +867,53 @@ static void UpdatePlay(bool bL, bool bR, bool bU, bool bD, bool bPunch, bool bJu
             W.camLock = true; W.camLockX = W.camX;
             SpawnBoss();
         }
+    } else if (W.heliT > 0) {
+        // ---- the escape ----
+        // She never actually dies. At 5% she stops fighting, the helicopter
+        // drops in, she boards, and it lifts away toward India. That is the
+        // ending: not a kill, a flight.
+        W.heliT++;
+        const int T = W.heliT;
+        Fighter* h = nullptr;
+        for (auto& e : W.enemies) if (e.isBoss && e.kind == CK_HASINA) h = &e;
+
+        if (T < 90) {                                  // helicopter descends
+            W.heliX = W.camX + GAME_W + 60.0f - T * 2.6f;
+            W.heliY = 26.0f + T * 0.35f;
+        } else if (T < 170) {                          // hovers, she runs to it
+            W.heliY = 57.0f;
+            if (h) {
+                h->state = S_WALK; h->anim = A_RUN;
+                h->facing = (W.heliX > h->x) ? 1 : -1;
+                h->x += 1.7f * h->facing;
+                h->animT += 1.0f / 60.0f;
+            }
+        } else if (T < 200) {                          // she is aboard
+            if (h) h->alive = false;
+        } else {                                       // lifts off and away
+            W.heliY -= 0.9f;
+            W.heliX += 2.2f;
+            if (W.heliY < -60.0f) {
+                W.score += SCORE_STAGE * (W.stage + 1);
+                StopMusic(); PlaySfx(SFX_CLEAR);
+                W.st = GS_CLEAR; W.stateT = 0;
+                W.bossDead = true;
+            }
+        }
     } else if (!W.bossDead) {
+        // Hasina bails out instead of dying.
+        for (auto& e : W.enemies) {
+            if (!e.isBoss || e.kind != CK_HASINA || !e.alive) continue;
+            if (e.hp <= (int)(e.maxHp * 0.05f)) {
+                W.heliT = 1;
+                W.heliX = W.camX + GAME_W + 60.0f;
+                W.heliY = 26.0f;
+                e.invuln = 100000;                     // untouchable now
+                PlaySfx(SFX_BOSS);
+                Banner("ESCAPE", nullptr, 150);
+                W.shake = 10;
+            }
+        }
         bool anyBoss = false;
         for (auto& e : W.enemies) if (e.isBoss && e.alive) anyBoss = true;
         if (!anyBoss) {
@@ -896,6 +964,17 @@ static void DrawWorld() {
     for (const auto& e : W.enemies)
         if (e.alive && e.state == S_ATTACK && e.anim == A_AIM) DrawAimLine(e, W.camX, W.stateT);
     for (const auto& b : W.shots)   DrawProjectile(b, W.camX, W.stateT);
+
+    // the escape helicopter — FLY frames are 8..11 on the sheet
+    if (W.heliT > 0 && g_heli.id) {
+        int fr = 8 + (W.stateT / 4) % 4;
+        const float FW = 64.0f, FH = 64.0f;
+        float sc = 1.9f;                       // it should dwarf the fighters
+        Rectangle src = { (fr % 8) * FW, (fr / 8) * FH, FW, FH };
+        Rectangle dst = { W.heliX - W.camX - FW * sc * 0.5f, W.heliY,
+                          FW * sc, FH * sc };
+        DrawTexturePro(g_heli, src, dst, { 0, 0 }, 0.0f, WHITE);
+    }
     for (const auto& q : W.parts)   DrawParticle(q, W.camX);
 
     // ---- HUD ----
@@ -997,6 +1076,21 @@ static void DrawOverlay() {
     (void)Cur();
     const int SC2 = GAME_W / 2;
     switch (W.st) {
+    case GS_STORY: {
+        UIRect(0, 0, GAME_W, GAME_H, { 6, 8, 14, 232 });
+        int pg = std::min(W.storyPage, STORY_PAGES - 1);
+        float in  = fminf(1.0f, W.stateT / 22.0f);
+        unsigned char A = (unsigned char)(255 * in);
+        DrawUITextC(STORY[pg].a, SC2, 82, 17, { 255, 255, 255, A });
+        DrawUITextC(STORY[pg].b, SC2, 112, 14, { 255, 255, 255, A });
+        // page pips, so you can see how much is left
+        for (int i = 0; i < STORY_PAGES; i++)
+            UIRect(SC2 - 22 + i * 10, 148, 6, 2,
+                   i == pg ? Color{ 255, 209, 102, 255 } : Color{ 255, 255, 255, 70 });
+        if (W.stateT > 40 && (W.stateT / 26) % 2)
+            DrawUITextC(TX_SKIP, SC2, GAME_H - 26, 12);
+        break;
+    }
     case GS_TITLE:
         UIRect(0, 0, GAME_W, GAME_H, { 8, 10, 18, 195 });
         DrawUITextC(TX_TITLE2, SC2, 28, 20);
@@ -1111,6 +1205,10 @@ int main(int argc, char** argv) {
     LoadCharacterSheet(CK_JALLAD,   "assets/jallad.png");
     LoadCharacterSheet(CK_JITU,     "assets/jitu.png");
     LoadCharacterSheet(CK_ANTOR,    "assets/antor.png");
+    if (FileExists("assets/heli.png")) {
+        g_heli = LoadTexture("assets/heli.png");
+        SetTextureFilter(g_heli, TEXTURE_FILTER_POINT);
+    }
 
     SpawnPlayer(60);
     LoadStageBackground(0);
@@ -1133,6 +1231,7 @@ int main(int argc, char** argv) {
     while (!WindowShouldClose() && !g_quit) Frame();
 #endif
 
+    if (g_heli.id) UnloadTexture(g_heli);
     UnloadUIText();
     UnloadGameAudio();
     UnloadStageBackground();
@@ -1195,7 +1294,16 @@ static void Frame() {
         else {
             switch (W.st) {
             case GS_TITLE:
-                if (bAny) StartRun();
+                if (bAny) { W.st = GS_STORY; W.stateT = 0; W.storyPage = 0; }
+                break;
+            case GS_STORY:
+                // auto-advance so it plays as an attract sequence, but a press
+                // skips ahead for anyone who has already read it
+                if (bAny || W.stateT > STORY_HOLD) {
+                    W.storyPage++;
+                    W.stateT = 0;
+                    if (W.storyPage >= STORY_PAGES) StartRun();
+                }
                 break;
             case GS_INTRO:
                 if (W.stateT > 130 || bAny) { W.st = GS_PLAY; W.stateT = 0; }
@@ -1226,7 +1334,9 @@ static void Frame() {
             static int pSt = -1, pStage = -1, pWave = -1, pLives = -1; static bool pBoss = false;
             if ((int)W.st != pSt || W.stage != pStage || W.waveIdx != pWave ||
                 W.lives != pLives || W.bossOut != pBoss) {
-                static const char* NM[] = { "TITLE","INTRO","PLAY","CLEAR","GAMEOVER","VICTORY" };
+                // must stay in step with enum GameState, or every label shifts
+                static const char* NM[] = { "TITLE","STORY","INTRO","PLAY",
+                                            "CLEAR","GAMEOVER","VICTORY" };
                 printf("f%-6ld %-8s stage%d wave%d/%d boss%d lives%d score%d\n",
                        frameNo, NM[W.st], W.stage + 1, W.waveIdx, Cur().waveCount,
                        (int)W.bossOut, W.lives, W.score);
@@ -1283,6 +1393,7 @@ static void Frame() {
         }
     }
 }
+
 
 
 

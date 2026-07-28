@@ -266,7 +266,9 @@ struct Fighter {
     int   palette = 0;               // skeleton colours, when no sheet is drawn
     int   kind = CK_REBEL;           // which sheet + animation table to use
     bool  isPlayer = false;
-    bool  isAlly = false;            // Jitu / Antor: fight for you, cannot be killed
+    bool  isAlly = false;            // Jitu / Antor
+    int   lives = 0;                 // allies: revives left before they stay down
+    bool  outCold = false;           // knocked out for good
     bool  isBoss = false;            // gets a named bar, never despawns, no flinch-shove
     bool  inArena = false;           // has walked on-screen; from then on he is fenced in
     int   age = 0;                   // frames since spawn, regardless of state changes
