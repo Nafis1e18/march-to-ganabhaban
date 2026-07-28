@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#05070f">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>March to Ganabhaban</title>
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{width:100%;height:100%;overflow:hidden;background:#05070f;color:#e8e8e8;
+    font-family:system-ui,"Segoe UI",sans-serif;
+    touch-action:none;user-select:none;-webkit-user-select:none;overscroll-behavior:none}
+  /* The game renders at 384x224 internally. Fit that to the screen without
+     smoothing so it stays chunky arcade pixels instead of a blurry upscale. */
+  canvas#canvas{display:block;width:100vw;height:100vh;object-fit:contain;
+    image-rendering:pixelated;image-rendering:crisp-edges;
+    background:#05070f;outline:none;touch-action:none}
+
+  #boot{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;gap:2.5vmin;background:#05070f;z-index:20;text-align:center;padding:6vmin}
+  #boot h1{font-size:6vmin;letter-spacing:.06em;font-weight:800}
+  #boot .sub{font-size:3vmin;opacity:.55;letter-spacing:.24em}
+  #bar{width:56vmin;height:5px;background:rgba(255,255,255,.12);border-radius:3px;overflow:hidden}
+  #barfill{height:100%;width:0;background:linear-gradient(90deg,#1f8f4e,#d62828);transition:width .2s}
+  #status{font-size:2.6vmin;opacity:.5;min-height:3.4vmin}
+  #tap{margin-top:1vmin;padding:2.4vmin 7vmin;border:2px solid rgba(255,255,255,.28);
+    border-radius:99px;font-size:3.4vmin;font-weight:700;letter-spacing:.16em;display:none;
+    background:rgba(255,255,255,.06)}
+
+  /* portrait nag — this is a landscape arcade game */
+  #rot{position:fixed;inset:0;background:#05070f;display:none;flex-direction:column;
+    align-items:center;justify-content:center;gap:3vmin;text-align:center;padding:8vmin;z-index:30}
+  #rot span{font-size:14vmin;animation:spin 1.8s ease-in-out infinite}
+  @keyframes spin{0%,40%{transform:rotate(0)}60%,100%{transform:rotate(90deg)}}
+  @media (orientation:portrait) and (pointer:coarse){#rot{display:flex}}
+</style>
+</head>
+<body>
+
+<canvas id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
+
+<div id="boot">
+  <h1>MARCH TO GANABHABAN</h1>
+  <div class="sub">JULY · 2024</div>
+  <div id="bar"><div id="barfill"></div></div>
+  <div id="status">loading…</div>
+  <div id="tap">TAP TO START</div>
+</div>
+
+<div id="rot">
+  <span>&#128241;</span>
+  <h2 style="font-size:5vmin">Rotate your phone</h2>
+  <p style="opacity:.6;font-size:3.4vmin">This is a landscape arcade game.</p>
+</div>
+
+<script>
+  const boot = document.getElementById('boot');
+  const fill = document.getElementById('barfill');
+  const stat = document.getElementById('status');
+  const tap  = document.getElementById('tap');
+  const cv   = document.getElementById('canvas');
+
+  let ready = false;
+
+  var Module = {
+    canvas: cv,
+    // Emscripten calls this with "Downloading data... (x/y)" style messages
+    setStatus(text) {
+      if (!text) { onReady(); return; }
+      stat.textContent = text;
+      const m = /([0-9.]+)\s*\/\s*([0-9.]+)/.exec(text);
+      if (m) fill.style.width = (parseFloat(m[1]) / parseFloat(m[2]) * 100) + '%';
+    },
+    onRuntimeInitialized() { onReady(); },
+    printErr(t) { console.error(t); },
+  };
+
+  function onReady() {
+    if (ready) return;
+    ready = true;
+    fill.style.width = '100%';
+    stat.textContent = '';
+    // Mobile browsers refuse to start audio without a real user gesture,
+    // so we always gate entry behind one tap rather than autostarting.
+    tap.style.display = 'block';
+  }
+
+  function start() {
+    if (!ready) return;
+    boot.style.display = 'none';
+    cv.focus();
+    // best-effort fullscreen + landscape lock; both are allowed to fail
+    const el = document.documentElement;
+    (el.requestFullscreen || el.webkitRequestFullscreen || (()=>{})).call(el)
+      .then(() => screen.orientation && screen.orientation.lock &&
+                  screen.orientation.lock('landscape').catch(()=>{}))
+      .catch(()=>{});
+  }
+  tap.addEventListener('click', start);
+  boot.addEventListener('click', start);
+
+  // stop the page itself from scrolling/zooming under the game
+  ['touchstart','touchmove','touchend','gesturestart'].forEach(ev =>
+    document.addEventListener(ev, e => { if (e.target === cv) e.preventDefault(); },
+                              { passive: false }));
+
+  window.onerror = e => { stat.textContent = 'error: ' + e; };
+
+  if ('serviceWorker' in navigator)
+    addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(()=>{}));
+</script>
+
+{{{ SCRIPT }}}
+</body>
+</html>

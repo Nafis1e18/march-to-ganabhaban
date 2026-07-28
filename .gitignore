@@ -1,0 +1,58 @@
+# ============================================================
+#  March to Ganabhaban
+# ============================================================
+
+# ---- secrets / credentials ----
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+*.keystore
+*.jks
+id_rsa*
+id_ed25519*
+credentials.json
+secrets.json
+*.token
+.netrc
+.npmrc
+
+# ---- toolchains: huge, and everyone installs their own ----
+# emsdk alone is ~1.9 GB. Re-create with:
+#   git clone https://github.com/emscripten-core/emsdk vendor/emsdk
+#   cd vendor/emsdk && python emsdk.py install latest && python emsdk.py activate latest
+vendor/emsdk/
+
+# raylib source (~98 MB), only needed to rebuild the libraries.
+# Get it from https://github.com/raysan5/raylib/archive/refs/tags/6.0.zip
+vendor/raylib-src/
+
+# vendor/raylib (headers + libraylib.a, ~3 MB) IS committed on purpose,
+# so a fresh clone builds with `mingw32-make` and nothing else.
+
+# ---- build output ----
+build/
+*.o
+*.obj
+*.exe
+*.a.tmp
+shot*.png
+
+# ---- generated art intermediates ----
+# The packed sheets in assets/ are committed; these are scratch files.
+art_source/_debug_cuts.png
+art_source/_verify_align.png
+
+# ---- editor / OS ----
+.vscode/
+.idea/
+*.swp
+*~
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# ---- agent scratch ----
+.claude/
