@@ -56,3 +56,6 @@ desktop.ini
 
 # ---- agent scratch ----
 .claude/
+
+# abandoned first-attempt prototype, kept locally for reference
+prototype_js/
