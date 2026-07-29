@@ -139,6 +139,8 @@ struct World {
     int   goTimer = 0;          // "GO ->" flash after clearing a wave
     int   storyPage = 0;
     int   diff = DF_EASY;
+    // Lost for the whole run, not just the stage. Cleared only by StartRun.
+    bool  allyLost[2] = { false, false };
 
     // Hasina's escape: at 5% health the helicopter comes for her.
     int   heliT = 0;            // 0 = not started, otherwise frames elapsed
@@ -344,8 +346,10 @@ static void StartStage(int idx) {
     W.camLock = false; W.goTimer = 0;
     SpawnPlayer(60);
     W.allies.clear();
-    W.allies.push_back(MakeAlly(CK_JITU,  30.0f, BELT_TOP + 14));
-    W.allies.push_back(MakeAlly(CK_ANTOR, 30.0f, BELT_BOT - 14));
+    // A friend who died in an earlier stage does not come back. His body stays
+    // in the stage where he fell; from the next one on, he is simply not there.
+    if (!W.allyLost[0]) W.allies.push_back(MakeAlly(CK_JITU,  30.0f, BELT_TOP + 14));
+    if (!W.allyLost[1]) W.allies.push_back(MakeAlly(CK_ANTOR, 30.0f, BELT_BOT - 14));
     W.camX = 0;
     LoadStageBackground(Cur().bg);
     StartMusic(idx);            // a semitone up and a few bpm faster each stage
@@ -354,6 +358,7 @@ static void StartStage(int idx) {
 
 static void StartRun() {
     W.lives = DIFFS[W.diff].playerLives;
+    W.allyLost[0] = W.allyLost[1] = false;   // a new run brings both back
     W.score = 0;
     StartStage(0);
 }
@@ -610,7 +615,11 @@ static void UpdateAlly(Fighter& a, int& allyAttackers) {
         if (a.outCold) return;
         if (a.stateT >= 150) {
             a.lives--;
-            if (a.lives < 0) { a.outCold = true; return; }
+            if (a.lives < 0) {
+                a.outCold = true;
+                W.allyLost[a.kind == CK_JITU ? 0 : 1] = true;
+                return;
+            }
             a.hp = a.maxHp; a.invuln = 80;
             a.state = S_GETUP; a.anim = A_GETUP; a.stateT = 0; a.animT = 0;
         }
@@ -1477,6 +1486,7 @@ static void Frame() {
         }
     }
 }
+
 
 
 
