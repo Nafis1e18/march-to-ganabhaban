@@ -240,6 +240,7 @@ static void StartAttack(Fighter& f, Anim a, const AttackDef& d) {
 }
 
 static void LoseLife();
+static void HurtAlly(Fighter& a, const AttackDef& d, int fromFacing);
 
 static void TakeHit(Fighter& v, const AttackDef& d, int fromFacing, bool byPlayer) {
     if (v.invuln > 0 || !v.alive) return;
@@ -452,7 +453,22 @@ static void UpdateEnemy(Fighter& e, int& attackers) {
         return;
     }
 
-    float dx = p.x - e.x, dz = p.z - e.z;
+    // Pick who to go after. Previously every enemy walked at the player and
+    // only clipped an ally by accident, so Jitu and Antor were never really in
+    // the fight. Now the nearest of the three wins, with a bias toward the
+    // player so the mob still feels like it is coming for you.
+    Fighter* tgt = &p;
+    {
+        float best = fabsf(p.x - e.x) + fabsf(p.z - e.z) * 0.6f;
+        best *= 0.78f;                       // the bias
+        for (auto& a : W.allies) {
+            if (a.outCold || a.state == S_DOWN) continue;
+            float d = fabsf(a.x - e.x) + fabsf(a.z - e.z) * 0.6f;
+            if (d < best) { best = d; tgt = &a; }
+        }
+    }
+
+    float dx = tgt->x - e.x, dz = tgt->z - e.z;
     e.facing = (dx > 0) ? 1 : -1;
 
     if (e.state == S_HURT) {
@@ -488,6 +504,10 @@ static void UpdateEnemy(Fighter& e, int& attackers) {
         } else if (!e.hitLanded &&
                    e.stateT >= e.atk.activeFrom && e.stateT <= e.atk.activeTo) {
             if (InRange(e, p, e.atk)) { HurtPlayer(e.atk, e.facing); e.hitLanded = true; }
+            else for (auto& a : W.allies) {
+                if (a.outCold || a.state == S_DOWN) continue;
+                if (InRange(e, a, e.atk)) { HurtAlly(a, e.atk, e.facing); e.hitLanded = true; break; }
+            }
         }
         if (e.stateT >= e.atk.total) {
             e.state = S_IDLE; e.anim = A_IDLE; e.animT = 0;
@@ -575,6 +595,9 @@ static void UpdateEnemy(Fighter& e, int& attackers) {
 // ============================================================
 static void UpdateAlly(Fighter& a, int& allyAttackers) {
     Fighter& p = W.player;
+    // Dead is dead. The body stays exactly where it fell - no drift, no
+    // fencing, no getting shoved by the arena bounds - and you march on.
+    if (a.outCold) { a.state = S_DOWN; a.anim = A_DOWN; a.y = 0; a.vy = 0; return; }
     a.stateT++; a.age++; a.animT += 1.0f / 60.0f;
     if (a.invuln > 0) a.invuln--;
     FenceIn(a);
@@ -801,16 +824,6 @@ static void UpdatePlay(bool bL, bool bR, bool bU, bool bD, bool bPunch, bool bJu
     int allyAttackers = 0;
     for (auto& a : W.allies) UpdateAlly(a, allyAttackers);
 
-    // Enemies swing at whoever is closest, so your friends genuinely soak
-    // hits instead of being decoration you have to protect.
-    for (auto& e : W.enemies) {
-        if (!e.alive || e.state != S_ATTACK || e.hitLanded || e.ranged) continue;
-        if (e.stateT < e.atk.activeFrom || e.stateT > e.atk.activeTo) continue;
-        for (auto& a : W.allies) {
-            if (a.state == S_DOWN) continue;
-            if (InRange(e, a, e.atk)) { HurtAlly(a, e.atk, e.facing); e.hitLanded = true; break; }
-        }
-    }
 
     // ---- projectiles ----
     for (auto& b : W.shots) {
@@ -1416,6 +1429,9 @@ static void Frame() {
                 printf("  .. f%ld px%.0f cam%d lock%d spawned%d/%d enemies:\n",
                        frameNo, W.player.x, W.camX, (int)W.camLock, W.waveSpawned,
                        W.waveIdx < Cur().waveCount ? Cur().waves[W.waveIdx].total : 0);
+                for (auto& a : W.allies)
+                    printf("     ALLY %-6s x%.0f z%.0f hp%d/%d lives%d out%d\n",
+                           CHAR_NAMES[a.kind], a.x, a.z, a.hp, a.maxHp, a.lives, (int)a.outCold);
                 for (auto& e : W.enemies)
                     printf("     %-9s x%.0f z%.0f hp%d/%d st%d tok%d arena%d\n",
                            CHAR_NAMES[e.kind], e.x, e.z, e.hp, e.maxHp,
@@ -1461,6 +1477,10 @@ static void Frame() {
         }
     }
 }
+
+
+
+
 
 
 
