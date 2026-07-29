@@ -52,10 +52,16 @@ enum TextId {
     TX_ST5B,
     TX_SKIP,
     TX_ESCAPE,
+    TX_MODE_TITLE,
+    TX_MODE_EASY,
+    TX_MODE_MED,
+    TX_MODE_EASY_D,
+    TX_MODE_MED_D,
+    TX_MODE_HINT,
     TX_COUNT
 };
 
-static const char* TEXT_FILES[TX_COUNT] = {
+__attribute__((unused)) static const char* TEXT_FILES[TX_COUNT] = {
     "assets/text/TITLE1.png",
     "assets/text/TITLE2.png",
     "assets/text/JULY.png",
@@ -103,4 +109,11 @@ static const char* TEXT_FILES[TX_COUNT] = {
     "assets/text/ST5B.png",
     "assets/text/SKIP.png",
     "assets/text/ESCAPE.png",
+    "assets/text/MODE_TITLE.png",
+    "assets/text/MODE_EASY.png",
+    "assets/text/MODE_MED.png",
+    "assets/text/MODE_EASY_D.png",
+    "assets/text/MODE_MED_D.png",
+    "assets/text/MODE_HINT.png",
 };
+

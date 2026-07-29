@@ -104,7 +104,7 @@ static void DrawTouchUI() {
 // ============================================================
 //  World
 // ============================================================
-enum GameState { GS_TITLE, GS_STORY, GS_INTRO, GS_PLAY, GS_CLEAR, GS_GAMEOVER, GS_VICTORY };
+enum GameState { GS_TITLE, GS_MODE, GS_STORY, GS_INTRO, GS_PLAY, GS_CLEAR, GS_GAMEOVER, GS_VICTORY };
 
 // Story intro: five pages of two short lines. Long paragraphs are unreadable
 // at 384x224, so the text is cut down to what fits on one screen at a time.
@@ -138,6 +138,7 @@ struct World {
     bool  bossDead = false;
     int   goTimer = 0;          // "GO ->" flash after clearing a wave
     int   storyPage = 0;
+    int   diff = DF_EASY;
 
     // Hasina's escape: at 5% health the helicopter comes for her.
     int   heliT = 0;            // 0 = not started, otherwise frames elapsed
@@ -204,7 +205,7 @@ static Fighter MakeFighter(int kind, float x, float z, bool elite = false) {
               : (kind == CK_KADER)    ? PAL_JALLAD
                                       : PAL_CHHATRA;
     e.x = x; e.z = z;
-    e.hp = e.maxHp = (int)(s.hp * st.hpMul * (elite ? st.bossHpMul : 1.0f));
+    e.hp = e.maxHp = (int)(s.hp * st.hpMul * DIFFS[W.diff].enemyHp * (elite ? st.bossHpMul : 1.0f));
     e.height = elite ? (int)(s.height * 1.18f) : s.height;
     e.facing = -1;
     e.ranged = s.ranged;
@@ -220,7 +221,7 @@ static AttackDef AttackFor(const Fighter& f) {
     AttackDef d{};
     d.total = s.atkTotal; d.activeFrom = s.atkFrom; d.activeTo = s.atkTo;
     d.reach = s.reach; d.zTol = s.zTol;
-    d.damage = (int)(s.damage * st.dmgMul);
+    d.damage = (int)(s.damage * st.dmgMul * DIFFS[W.diff].enemyDmg);
     d.push = 2.6f; d.knockdown = false;
     return d;
 }
@@ -326,7 +327,7 @@ static Fighter MakeAlly(int kind, float x, float z) {
     a.kind = kind;
     a.palette = (kind == CK_JITU) ? PAL_CHHATRA : PAL_POLICE;
     a.x = x; a.z = z;
-    a.hp = a.maxHp = 70; a.lives = 2;
+    a.hp = a.maxHp = DIFFS[W.diff].allyHp; a.lives = DIFFS[W.diff].allyLives;
     a.height = 46;
     a.facing = 1;
     a.isAlly = true;
@@ -351,7 +352,7 @@ static void StartStage(int idx) {
 }
 
 static void StartRun() {
-    W.lives = START_LIVES;
+    W.lives = DIFFS[W.diff].playerLives;
     W.score = 0;
     StartStage(0);
 }
@@ -478,7 +479,7 @@ static void UpdateEnemy(Fighter& e, int& attackers) {
                 b.x = e.x + e.facing * 14.0f;
                 b.z = e.z; b.y = e.height * 0.55f;
                 b.vx = BULLET_SPEED * e.facing;
-                b.dmg = (int)(s.damage * st.dmgMul);
+                b.dmg = (int)(s.damage * st.dmgMul * DIFFS[W.diff].enemyDmg);
                 b.life = 240; b.alive = true;
                 if (e.kind == CK_HASINA) { b.kind = 1; b.vx *= 0.66f; b.vy = 1.8f; }
                 else                     { b.kind = 0; }
@@ -505,7 +506,7 @@ static void UpdateEnemy(Fighter& e, int& attackers) {
         else if (adx > e.standOff + 24) mx = (dx > 0 ?  1.0f : -1.0f);
         if (fabsf(dz) > 5.0f) mz = (dz > 0 ? 1.0f : -1.0f);
 
-        e.x += mx * WALK_X * 0.55f * st.spdMul;
+        e.x += mx * WALK_X * 0.55f * st.spdMul * DIFFS[W.diff].enemySpd;
         e.z = Clampf(e.z + mz * WALK_Z * 0.6f, BELT_TOP, BELT_BOT);
 
         bool moving = (mx != 0 || mz != 0);
@@ -513,7 +514,7 @@ static void UpdateEnemy(Fighter& e, int& attackers) {
         e.anim  = moving ? A_WALK : A_IDLE;
 
         bool laned = fabsf(dz) < BULLET_ZTOL;
-        if (!e.hasToken && attackers < st.maxAttackers && e.shootCD == 0 && laned) {
+        if (!e.hasToken && attackers < st.maxAttackers + DIFFS[W.diff].attackerBonus && e.shootCD == 0 && laned) {
             e.hasToken = true; attackers++;
         }
         if (e.hasToken && e.shootCD == 0 && laned && adx > 40 && adx < 265) {
@@ -533,7 +534,7 @@ static void UpdateEnemy(Fighter& e, int& attackers) {
     if (fabsf(dx) > want) mx = (dx > 0 ? 1.0f : -1.0f);
     else if (!e.hasToken && fabsf(dx) < want - 8) mx = (dx > 0 ? -0.6f : 0.6f);
 
-    e.x += mx * s.speed * WALK_X * 0.62f * st.spdMul;
+    e.x += mx * s.speed * WALK_X * 0.62f * st.spdMul * DIFFS[W.diff].enemySpd;
     e.z = Clampf(e.z + mz * s.speed * WALK_Z * 0.75f * st.spdMul, BELT_TOP, BELT_BOT);
 
     bool moving = (mx != 0 || mz != 0);
@@ -547,7 +548,7 @@ static void UpdateEnemy(Fighter& e, int& attackers) {
     }
 
     if (e.aiTimer > 0) e.aiTimer--;
-    if (!e.hasToken && attackers < st.maxAttackers && aligned &&
+    if (!e.hasToken && attackers < st.maxAttackers + DIFFS[W.diff].attackerBonus && aligned &&
         fabsf(dx) < want + 10 && e.aiTimer == 0) {
         e.hasToken = true; attackers++;
     }
@@ -654,8 +655,8 @@ static void UpdateAlly(Fighter& a, int& allyAttackers) {
         allyAttackers < 2) {
         allyAttackers++;
         AttackDef d = ATK_PUNCH1;
-        d.damage = 7;                                  // solid, but you out-damage them
-        if (GetRandomValue(0, 100) < 30) { d = ATK_PUNCH3; d.damage = 11; }
+        d.damage = DIFFS[W.diff].allyDamage;
+        if (GetRandomValue(0, 100) < 22) { d = ATK_PUNCH3; d.damage = DIFFS[W.diff].allyDamage + 3; }
         StartAttack(a, (d.knockdown ? A_PUNCH3 : A_PUNCH1), d);
     }
 }
@@ -1111,6 +1112,25 @@ static void DrawOverlay() {
     (void)Cur();
     const int SC2 = GAME_W / 2;
     switch (W.st) {
+    case GS_MODE: {
+        UIRect(0, 0, GAME_W, GAME_H, { 6, 8, 14, 225 });
+        DrawUITextC(TX_MODE_TITLE, SC2, 30, 24);
+        for (int i = 0; i < DF_COUNT; i++) {
+            bool sel = (W.diff == i);
+            float y = 74.0f + i * 46.0f;
+            if (sel) UIRect(SC2 - 96, y - 6, 192, 40, { 255, 255, 255, 26 });
+            Color c = sel ? Color{ 255, 255, 255, 255 } : Color{ 255, 255, 255, 110 };
+            DrawUITextC(i == 0 ? TX_MODE_EASY : TX_MODE_MED, SC2, y, sel ? 26.0f : 22.0f, c);
+            DrawUITextC(i == 0 ? TX_MODE_EASY_D : TX_MODE_MED_D, SC2, y + 26, 13,
+                        { 255, 255, 255, (unsigned char)(sel ? 220 : 90) });
+            if (sel) {   // a marker either side of the choice
+                UIRect(SC2 - 106, y + 8, 7, 4, { 255, 209, 102, 255 });
+                UIRect(SC2 + 99, y + 8, 7, 4, { 255, 209, 102, 255 });
+            }
+        }
+        if ((W.stateT / 30) % 2) DrawUITextC(TX_MODE_HINT, SC2, GAME_H - 28, 14);
+        break;
+    }
     case GS_STORY: {
         UIRect(0, 0, GAME_W, GAME_H, { 6, 8, 14, 232 });
         int pg = std::min(W.storyPage, STORY_PAGES - 1);
@@ -1211,6 +1231,7 @@ int main(int argc, char** argv) {
         else if (!strcmp(argv[i], "--fast")) fast = true;   // uncap fps for testing
         else if (!strcmp(argv[i], "--stage") && i + 1 < argc) startStage = atoi(argv[++i]) - 1;
         else if (!strcmp(argv[i], "--boss")) bossNow = true;   // skip straight to the boss
+        else if (!strcmp(argv[i], "--diff") && i + 1 < argc) W.diff = std::min(DF_COUNT - 1, std::max(0, atoi(argv[++i])));
         else if (!strcmp(argv[i], "--shot") && i + 1 < argc) {
             shotAt = atoi(argv[++i]);
             if (i + 1 < argc && argv[i + 1][0] != '-') shotFile = argv[++i];
@@ -1329,7 +1350,18 @@ static void Frame() {
         else {
             switch (W.st) {
             case GS_TITLE:
-                if (bAny) { W.st = GS_STORY; W.stateT = 0; W.storyPage = 0; }
+                if (bAny) { W.st = GS_MODE; W.stateT = 0; }
+                break;
+            case GS_MODE:
+                // up/down chooses, punch confirms. Jump is deliberately not a
+                // confirm, or the key you press to leave the title carries
+                // through and picks a mode before you have read them.
+                if (bU && W.stateT > 6) { W.diff = 0; W.stateT = 0; PlaySfx(SFX_SELECT); }
+                if (bD && W.stateT > 6) { W.diff = DF_COUNT - 1; W.stateT = 0; PlaySfx(SFX_SELECT); }
+                if (bPunch && W.stateT > 10) {
+                    PlaySfx(SFX_SELECT);
+                    W.st = GS_STORY; W.stateT = 0; W.storyPage = 0;
+                }
                 break;
             case GS_STORY:
                 // auto-advance so it plays as an attract sequence, but a press
@@ -1370,7 +1402,7 @@ static void Frame() {
             if ((int)W.st != pSt || W.stage != pStage || W.waveIdx != pWave ||
                 W.lives != pLives || W.bossOut != pBoss) {
                 // must stay in step with enum GameState, or every label shifts
-                static const char* NM[] = { "TITLE","STORY","INTRO","PLAY",
+                static const char* NM[] = { "TITLE","MODE","STORY","INTRO","PLAY",
                                             "CLEAR","GAMEOVER","VICTORY" };
                 printf("f%-6ld %-8s stage%d wave%d/%d boss%d lives%d score%d\n",
                        frameNo, NM[W.st], W.stage + 1, W.waveIdx, Cur().waveCount,
@@ -1429,6 +1461,8 @@ static void Frame() {
         }
     }
 }
+
+
 
 
 

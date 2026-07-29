@@ -87,7 +87,7 @@ constexpr Stage STAGES[STAGE_COUNT] = {
             { 1060, 4, 3, { CK_CHHATRA }, 1 },
         }, 3, 1420,
         CK_CHHATRA, "SOVAPOTI SADDAM", "he brought the sticks", 3.2f, true,
-        0.85f, 0.70f, 0.95f, 2,
+        0.95f, 0.85f, 1.00f, 2,
         -1, 0.0f
     },
     // --------------------------- 2 ---------------------------
@@ -98,7 +98,7 @@ constexpr Stage STAGES[STAGE_COUNT] = {
             { 1180, 5, 3, { CK_CHHATRA, CK_POLICE, CK_DBPOLICE }, 3 },
         }, 3, 1560,
         CK_DBPOLICE, "DB HARUN", "the one who fires first", 4.0f, true,
-        0.95f, 0.85f, 1.00f, 2,
+        1.05f, 0.95f, 1.05f, 2,
         -1, 0.0f
     },
     // --------------------------- 3 ---------------------------
@@ -109,7 +109,7 @@ constexpr Stage STAGES[STAGE_COUNT] = {
             { 1200, 6, 4, { CK_DBPOLICE, CK_POLICE, CK_CHHATRA }, 3 },
         }, 3, 1620,
         CK_KADER, "KAWWA KADER", "he called you a crow", 1.0f, false,
-        1.10f, 0.95f, 1.05f, 3,
+        1.20f, 1.05f, 1.10f, 3,
         -1, 0.0f
     },
     // --------------------------- 4 ---------------------------
@@ -122,10 +122,37 @@ constexpr Stage STAGES[STAGE_COUNT] = {
             { 1240, 6, 4, { CK_POLICE, CK_DBPOLICE, CK_CHHATRA }, 3 },
         }, 3, 1700,
         CK_HASINA, "SHEIKH HASINA", "the final chair", 1.0f, false,
-        1.25f, 1.05f, 1.10f, 3,
+        1.40f, 1.20f, 1.15f, 3,
         CK_JALLAD, 0.85f
     },
 };
+
+// ============================================================
+//  Difficulty
+//  Multipliers stacked on top of the per-stage numbers, plus how
+//  sturdy your friends are. Jitu and Antor are deliberately much
+//  weaker than you now: they wear enemies down and soak hits, but
+//  they cannot carry the run on their own.
+// ============================================================
+enum Diff { DF_EASY, DF_MEDIUM, DF_COUNT };
+
+struct DiffDef {
+    float enemyHp;
+    float enemyDmg;
+    float enemySpd;
+    int   attackerBonus;   // added to the stage's maxAttackers
+    int   allyHp;
+    int   allyDamage;
+    int   allyLives;       // revives before they stay down for good
+    int   playerLives;
+};
+
+constexpr DiffDef DIFFS[DF_COUNT] = {
+    /* EASY   */ { 0.90f, 0.80f, 0.95f, 0, 46, 5, 1, 3 },
+    /* MEDIUM */ { 1.20f, 1.20f, 1.10f, 1, 34, 4, 0, 2 },
+};
+
+constexpr const char* DIFF_NAMES[DF_COUNT] = { "EASY", "MEDIUM" };
 
 // ---------- scoring ----------
 constexpr int SCORE_HIT       = 10;
@@ -144,5 +171,7 @@ constexpr Rank RANKS[] = {
     {      0, "BYSTANDER"   },
 };
 constexpr int RANK_COUNT = 5;
+
+
 
 

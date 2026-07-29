@@ -59,3 +59,11 @@ ST5A          | গণভবনের দিকে এগিয়ে যাও 
 ST5B          | স্বৈরাচারকে হটাও, দেশকে স্বাধীন করো | 15 | #9FE0B8
 SKIP          | J চাপুন | 12 | #FFFFFFAA
 ESCAPE        | সে পালিয়ে যাচ্ছে | 20 | #FFD166
+
+# ---- difficulty select ----
+MODE_TITLE    | মোড বেছে নাও | 20 | #FFFFFF
+MODE_EASY     | সহজ | 26 | #FFFFFF
+MODE_MED      | মাঝারি | 26 | #FFFFFF
+MODE_EASY_D   | বন্ধুরা টিকে থাকে, শত্রু নরম | 12 | #9FE0B8
+MODE_MED_D    | বন্ধুরা দুর্বল, শত্রু কঠিন | 12 | #FFB3B3
+MODE_HINT     | উপর/নিচ দিয়ে বাছো - J চাপো | 13 | #FFFFFFAA
