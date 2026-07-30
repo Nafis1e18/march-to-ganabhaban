@@ -62,7 +62,16 @@ clutter a keyboard session.
 
 ### Gameplay demo
 
-▶ **[Watch the gameplay video](https://github.com/Nafis1e18/march-to-ganabhaban/raw/refs/heads/main/assets/Vedio/readme_final_gameplay.mp4)**
+[![Animated gameplay preview](assets/Vedio/gameplay-preview.gif)](https://github.com/Nafis1e18/march-to-ganabhaban/raw/refs/heads/main/assets/Vedio/readme_final_gameplay.mp4)
+
+*Short animated preview — click it to watch the full gameplay video.*
+
+### Example character: Rebel
+
+![Rebel animation sprite sheet](assets/rebel.png)
+
+Each cell is one animation frame. The engine combines these frames into idle,
+walking, running, punching, kicking, jumping, hurt, and knockdown animations.
 
 **The belt.** Every fighter has three coordinates: `x` along the street, `z` for
 depth up and down the road, `y` for jump height. You can only strike someone at
