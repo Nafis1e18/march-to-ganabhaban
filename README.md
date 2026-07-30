@@ -60,7 +60,7 @@ clutter a keyboard session.
 
 ## How it plays
 
-![gameplay](docs/shot-play.png)
+![gameplay](assets/Vedio/readme_final_gameplay.mp4)
 
 **The belt.** Every fighter has three coordinates: `x` along the street, `z` for
 depth up and down the road, `y` for jump height. You can only strike someone at
