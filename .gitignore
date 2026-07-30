@@ -48,6 +48,7 @@ art_source/_verify_align.png
 .idea/
 *.swp
 *~
+~$*
 Thumbs.db
 desktop.ini
 .DS_Store
