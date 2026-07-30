@@ -1,5 +1,6 @@
 // ============================================================
-//  Audio — synthesised at start-up, no sound files on disk.
+//  Audio — gameplay sound is synthesised at start-up; the final victory
+//  screen also plays one user-supplied recording.
 // ============================================================
 #pragma once
 #include "raylib.h"
@@ -19,3 +20,7 @@ void PlaySfx(int id);
 void StartMusic(int stage);
 void UpdateMusic();      // call once a frame; re-triggers the loop
 void StopMusic();
+
+// User-supplied one-shot played only when the final Hurray screen opens.
+void PlayFinalVictoryAudio();
+void StopFinalVictoryAudio();

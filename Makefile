@@ -6,10 +6,16 @@
 #   mingw32-make web      WebAssembly build (needs emsdk — see README)
 
 RAYLIB   := vendor/raylib
+PORTABLE_CXX := .toolchain/winlibs/mingw64/bin/g++.exe
+ifneq ($(wildcard $(PORTABLE_CXX)),)
+CXX      := $(PORTABLE_CXX)
+else
 CXX      := g++
+endif
 CXXFLAGS := -std=c++17 -O2 -Wall -Wextra -Wno-missing-field-initializers \
             -I$(RAYLIB)/include -Isrc
-LDFLAGS  := -L$(RAYLIB)/lib -lraylib -lopengl32 -lgdi32 -lwinmm
+LDFLAGS  := -static-libgcc -static-libstdc++ \
+            -L$(RAYLIB)/lib -lraylib -lopengl32 -lgdi32 -lwinmm
 
 SRCS   := $(wildcard src/*.cpp)
 TARGET := build/game.exe

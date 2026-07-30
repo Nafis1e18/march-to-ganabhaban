@@ -36,7 +36,7 @@ static void DrawTextC(const char* t, int cx, int y, int size, Color c) {
 static float Clampf(float v, float a, float b) { return v < a ? a : (v > b ? b : v); }
 
 static bool g_debug = false;   // --debug: overlay the wave/flow state
-static Texture2D g_heli{};     // the escape helicopter, drawn straight from its sheet
+static Texture2D g_heli{};     // the escape helicopter, drawn from the supplied single image
 
 // ============================================================
 //  Touch controls
@@ -214,6 +214,8 @@ static Fighter MakeFighter(int kind, float x, float z, bool elite = false) {
     e.standOff = s.ranged ? GetRandomValue(95, 150) : 0;
     e.shootCD = GetRandomValue(40, 120);
     e.aiTimer = GetRandomValue(20, 80);
+    e.aiSlot = GetRandomValue(0, 5);
+    if (kind == CK_HASINA) e.specialCD = GetRandomValue(180, 240);
     return e;
 }
 
@@ -432,7 +434,9 @@ static void SpawnBoss() {
 // past the edge the player is fenced behind, and the wave can never be cleared.
 static void FenceIn(Fighter& e) {
     if (!W.camLock) return;
-    float lo = (float)W.camX + 8.0f, hi = (float)W.camX + GAME_W - 8.0f;
+    // Leave enough room at both edges for a full sprite, while keeping every
+    // enemy reachable by a player who is free to use the whole screen.
+    float lo = (float)W.camX + 40.0f, hi = (float)W.camX + GAME_W - 40.0f;
     if (!e.inArena) {
         // A ranged enemy stops the instant he reaches his firing distance, so
         // if he spawned outside he can sit there forever, out of reach of a
@@ -519,13 +523,95 @@ static void UpdateEnemy(Fighter& e, int& attackers) {
             e.hasToken = false;
             e.shootCD = SHOOT_CD + GetRandomValue(-30, 50);
             e.aiTimer = GetRandomValue(24, 70);
+
+            // Do not let one enemy keep attacking from one fixed side. After
+            // every melee attack, and after every DB police shot, cross behind
+            // the target and prepare the next attack from the other side.
+            // Hasina has her own stronger relocation power below.
+            if (W.camLock && e.kind != CK_HASINA &&
+                (!e.ranged || e.kind == CK_DBPOLICE)) {
+                const float innerLo = W.camX + 48.0f;
+                const float innerHi = W.camX + GAME_W - 48.0f;
+                const float gap = e.ranged ? (float)e.standOff : 52.0f;
+                e.dashX = Clampf(tgt->x + e.facing * gap, innerLo, innerHi);
+                e.dashZ = Clampf(tgt->z + GetRandomValue(-24, 24),
+                                 BELT_TOP + 5.0f, BELT_BOT - 5.0f);
+                e.dashT = e.ranged ? 70 : 48;
+            }
         }
         return;
+    }
+
+    // Reposition after an attack. This is a visible run, not a teleport: the
+    // enemy crosses the fight, changes depth lane, then turns for the next
+    // approach. It naturally keeps action moving through screen centre while
+    // leaving the player completely free to chase anywhere.
+    if (e.dashT > 0 && e.kind != CK_HASINA) {
+        if (e.shootCD > 0) e.shootCD--;
+        float ddx = e.dashX - e.x, ddz = e.dashZ - e.z;
+        e.facing = (ddx > 0) ? 1 : -1;
+        float runSpeed = e.ranged ? 3.4f : 2.7f;
+        e.x += Clampf(ddx, -runSpeed, runSpeed);
+        e.z = Clampf(e.z + Clampf(ddz, -2.4f, 2.4f), BELT_TOP, BELT_BOT);
+        e.state = S_WALK; e.anim = A_RUN;
+        if ((e.dashT % 9) == 0) Dust(e.x, e.z, 1);
+        e.dashT--;
+        if ((fabsf(ddx) < 3.0f && fabsf(ddz) < 3.0f) || e.dashT == 0) {
+            e.dashT = 0;
+            e.state = S_IDLE; e.anim = A_IDLE; e.animT = 0;
+        }
+        FenceIn(e);
+        return;
+    }
+
+    // Hasina periodically breaks away from pressure with a very fast,
+    // visible run to the opposite side of the arena. It is deliberately not
+    // an instant teleport: the player can see where she went, but cannot keep
+    // her trapped in a corner. The helicopter escape owns her movement once
+    // the finale has started, so this power is disabled then.
+    if (e.kind == CK_HASINA && W.heliT == 0) {
+        if (e.specialCD > 0) e.specialCD--;
+
+        if (e.dashT > 0) {
+            float ddx = e.dashX - e.x, ddz = e.dashZ - e.z;
+            e.facing = (ddx > 0) ? 1 : -1;
+            e.x += Clampf(ddx, -5.8f, 5.8f);
+            e.z = Clampf(e.z + Clampf(ddz, -3.2f, 3.2f), BELT_TOP, BELT_BOT);
+            e.state = S_WALK; e.anim = A_RUN;
+            if ((e.dashT % 7) == 0) Dust(e.x, e.z, 1);
+            e.dashT--;
+            if ((fabsf(ddx) < 3.0f && fabsf(ddz) < 3.0f) || e.dashT == 0) {
+                e.dashT = 0;
+                e.specialCD = GetRandomValue(210, 300);
+                e.state = S_IDLE; e.anim = A_IDLE; e.animT = 0;
+            }
+            FenceIn(e);
+            return;
+        }
+
+        if (e.specialCD == 0 && e.inArena) {
+            const float mid = W.camX + GAME_W * 0.5f;
+            // Always cross the centre line, with a little variation so the
+            // player cannot camp on one exact landing spot.
+            if (e.x < mid) e.dashX = W.camX + GAME_W - GetRandomValue(58, 88);
+            else           e.dashX = W.camX + GetRandomValue(58, 88);
+            e.dashZ = BELT_TOP + GetRandomValue(10, (int)(BELT_BOT - BELT_TOP - 20));
+            e.dashT = 72;                         // at most 1.2 seconds
+            e.invuln = std::max(e.invuln, 12);   // enough to escape a combo
+            e.hasToken = false;
+            e.shootCD = std::max(e.shootCD, 30);
+        }
     }
 
     // ---------------- ranged ----------------
     if (e.ranged) {
         if (e.shootCD > 0) e.shootCD--;
+        const float realDz = dz;
+        // Ranged enemies waiting for a firing token use separate depth lanes
+        // instead of drawing on top of each other at the edge.
+        const float laneZ = Clampf(tgt->z + (e.aiSlot % 3 - 1) * 14.0f,
+                                   BELT_TOP + 4.0f, BELT_BOT - 4.0f);
+        dz = (e.hasToken ? tgt->z : laneZ) - e.z;
         float adx = fabsf(dx), mx = 0, mz = 0;
         if (adx < e.standOff - 18)      mx = (dx > 0 ? -1.0f : 1.0f);
         else if (adx > e.standOff + 24) mx = (dx > 0 ?  1.0f : -1.0f);
@@ -538,8 +624,9 @@ static void UpdateEnemy(Fighter& e, int& attackers) {
         e.state = moving ? S_WALK : S_IDLE;
         e.anim  = moving ? A_WALK : A_IDLE;
 
-        bool laned = fabsf(dz) < BULLET_ZTOL;
-        if (!e.hasToken && attackers < st.maxAttackers + DIFFS[W.diff].attackerBonus && e.shootCD == 0 && laned) {
+        bool laned = fabsf(realDz) < BULLET_ZTOL;
+        if (!e.hasToken && attackers < st.maxAttackers + DIFFS[W.diff].attackerBonus &&
+            e.shootCD == 0 && fabsf(realDz) < 28.0f) {
             e.hasToken = true; attackers++;
         }
         if (e.hasToken && e.shootCD == 0 && laned && adx > 40 && adx < 265) {
@@ -551,13 +638,27 @@ static void UpdateEnemy(Fighter& e, int& attackers) {
     }
 
     // ---------------- melee ----------------
-    float want = s.reach - 4.0f;
-    bool aligned = fabsf(dz) < 8.0f;
+    // Long-reach enemies must still step into the player's striking range.
+    // Otherwise Jallad can stop at 28px, attack with his 32px reach, and sit
+    // permanently outside the player's 24px punch.
+    float want = std::min(s.reach - 4.0f, ATK_PUNCH1.reach - 3.0f);
+    const float realDx = dx, realDz = dz;
+    bool aligned = fabsf(realDz) < 8.0f;
     float mx = 0, mz = 0;
+
+    if (!e.hasToken) {
+        // Enemies without an attack token occupy alternating sides and lanes.
+        // This forms a readable ring around the fight instead of one pile.
+        const float side = (e.aiSlot & 1) ? 1.0f : -1.0f;
+        const float laneZ = Clampf(tgt->z + (e.aiSlot % 3 - 1) * 15.0f,
+                                   BELT_TOP + 4.0f, BELT_BOT - 4.0f);
+        dx = tgt->x + side * (want + 13.0f) - e.x;
+        dz = laneZ - e.z;
+    }
 
     if (fabsf(dz) > 4.0f) mz = (dz > 0 ? 1.0f : -1.0f);
     if (fabsf(dx) > want) mx = (dx > 0 ? 1.0f : -1.0f);
-    else if (!e.hasToken && fabsf(dx) < want - 8) mx = (dx > 0 ? -0.6f : 0.6f);
+    else if (e.hasToken && fabsf(dx) < want - 8) mx = (dx > 0 ? -0.6f : 0.6f);
 
     e.x += mx * s.speed * WALK_X * 0.62f * st.spdMul * DIFFS[W.diff].enemySpd;
     e.z = Clampf(e.z + mz * s.speed * WALK_Z * 0.75f * st.spdMul, BELT_TOP, BELT_BOT);
@@ -573,11 +674,11 @@ static void UpdateEnemy(Fighter& e, int& attackers) {
     }
 
     if (e.aiTimer > 0) e.aiTimer--;
-    if (!e.hasToken && attackers < st.maxAttackers + DIFFS[W.diff].attackerBonus && aligned &&
-        fabsf(dx) < want + 10 && e.aiTimer == 0) {
+    if (!e.hasToken && attackers < st.maxAttackers + DIFFS[W.diff].attackerBonus &&
+        fabsf(realDz) < 28.0f && fabsf(realDx) < want + 28.0f && e.aiTimer == 0) {
         e.hasToken = true; attackers++;
     }
-    if (e.hasToken && aligned && fabsf(dx) < want + 6) {
+    if (e.hasToken && aligned && fabsf(realDx) < want + 6) {
         AttackDef d = AttackFor(e);
         Anim a = A_PUNCH1;
         // Bosses mix in their signature move; it hits harder and knocks down,
@@ -812,6 +913,8 @@ static void UpdatePlayer(bool bL, bool bR, bool bU, bool bD, bool bPunch, bool b
     }
 
     // stay inside the locked arena / never walk back off the left edge
+    // The player may use the full visible arena. Enemy side-switching above,
+    // rather than an invisible central wall, keeps the fight moving.
     float leftWall = (float)W.camX + 10.0f;
     float rightWall = W.camLock ? (float)W.camX + GAME_W - 12.0f : 1e9f;
     p.x = Clampf(p.x, leftWall, rightWall);
@@ -903,15 +1006,21 @@ static void UpdatePlay(bool bL, bool bR, bool bU, bool bD, bool bPunch, bool bJu
         if (T < 90) {                                  // helicopter descends
             W.heliX = W.camX + GAME_W + 60.0f - T * 2.6f;
             W.heliY = 26.0f + T * 0.35f;
-        } else if (T < 170) {                          // hovers, she runs to it
+        } else if (T < 190) {                          // hovers, she runs into the cabin
             W.heliY = 57.0f;
             if (h) {
+                // The cabin sits left of the centre of the supplied image.
+                // Walk Hasina all the way to its door before hiding her, so it
+                // reads as boarding rather than her remaining on the street.
+                const float doorX = W.heliX - 18.0f;
                 h->state = S_WALK; h->anim = A_RUN;
-                h->facing = (W.heliX > h->x) ? 1 : -1;
-                h->x += 1.7f * h->facing;
+                h->facing = (doorX > h->x) ? 1 : -1;
+                float step = Clampf(doorX - h->x, -1.7f, 1.7f);
+                h->x += step;
                 h->animT += 1.0f / 60.0f;
+                if (fabsf(doorX - h->x) < 2.0f) h->alive = false;
             }
-        } else if (T < 200) {                          // she is aboard
+        } else if (T < 210) {                          // she is aboard
             if (h) h->alive = false;
         } else {                                       // lifts off and away
             W.heliY -= 0.9f;
@@ -988,14 +1097,12 @@ static void DrawWorld() {
         if (e.alive && e.state == S_ATTACK && e.anim == A_AIM) DrawAimLine(e, W.camX, W.stateT);
     for (const auto& b : W.shots)   DrawProjectile(b, W.camX, W.stateT);
 
-    // the escape helicopter — FLY frames are 8..11 on the sheet
+    // The escape helicopter is one supplied image, not a character sheet.
     if (W.heliT > 0 && g_heli.id) {
-        int fr = 8 + (W.stateT / 4) % 4;
-        const float FW = 64.0f, FH = 64.0f;
-        float sc = 1.9f;                       // it should dwarf the fighters
-        Rectangle src = { (fr % 8) * FW, (fr / 8) * FH, FW, FH };
-        Rectangle dst = { W.heliX - W.camX - FW * sc * 0.5f, W.heliY,
-                          FW * sc, FH * sc };
+        const float drawW = 190.0f;             // it should dwarf the fighters
+        const float drawH = drawW * g_heli.height / (float)g_heli.width;
+        Rectangle src = { 0.0f, 0.0f, (float)g_heli.width, (float)g_heli.height };
+        Rectangle dst = { W.heliX - W.camX - drawW * 0.5f, W.heliY, drawW, drawH };
         DrawTexturePro(g_heli, src, dst, { 0, 0 }, 0.0f, WHITE);
     }
     for (const auto& q : W.parts)   DrawParticle(q, W.camX);
@@ -1285,7 +1392,7 @@ int main(int argc, char** argv) {
     LoadCharacterSheet(CK_ANTOR,    "assets/antor.png");
     if (FileExists("assets/heli.png")) {
         g_heli = LoadTexture("assets/heli.png");
-        SetTextureFilter(g_heli, TEXTURE_FILTER_POINT);
+        SetTextureFilter(g_heli, TEXTURE_FILTER_BILINEAR);
     }
 
     SpawnPlayer(60);
@@ -1406,12 +1513,16 @@ static void Frame() {
                         W.score += W.lives * SCORE_LIFE_LEFT;
                         if (W.score > W.hiScore) W.hiScore = W.score;
                         W.st = GS_VICTORY; W.stateT = 0;
+                        PlayFinalVictoryAudio();
                     } else StartStage(W.stage + 1);
                 }
                 break;
             case GS_GAMEOVER:
             case GS_VICTORY:
-                if (W.stateT > 90 && bAny) { W.st = GS_TITLE; W.stateT = 0; }
+                if (W.stateT > 90 && bAny) {
+                    if (W.st == GS_VICTORY) StopFinalVictoryAudio();
+                    W.st = GS_TITLE; W.stateT = 0;
+                }
                 break;
             }
         }

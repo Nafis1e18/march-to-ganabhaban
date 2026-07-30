@@ -112,7 +112,7 @@ src/main.cpp    state machine, wave flow, AI, player control
 src/render.cpp  parallax backgrounds, particles, placeholder skeleton renderer
 src/sprites.cpp sprite sheets with per-animation fallback
 src/text.cpp    Bangla UI (pre-shaped PNGs)
-src/audio.cpp   synthesised SFX and music — no audio files on disk
+src/audio.cpp   synthesised gameplay audio + the final victory recording
 ```
 
 Everything is **frame-counted at a locked 60fps**, never delta-timed. A move

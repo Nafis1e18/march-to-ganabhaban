@@ -1,6 +1,4 @@
-# ============================================================
 #  March to Ganabhaban
-# ============================================================
 
 # ---- secrets / credentials ----
 .env
@@ -56,6 +54,7 @@ desktop.ini
 
 # ---- agent scratch ----
 .claude/
+.toolchain/
 
 # abandoned first-attempt prototype, kept locally for reference
 prototype_js/

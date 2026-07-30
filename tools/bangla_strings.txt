@@ -13,17 +13,17 @@ STAGE         | পর্ব | 16 | #9FE0B8
 CLEAR_ST      | রাস্তা পরিষ্কার করো | 15 | #FFFFFF
 GO            | এগিয়ে চলো | 22 | #FFE15A
 
-WIN1          | সে পালিয়েছে | 38 | #FFFFFF
-WIN2          | ৫ আগস্ট ২০২৪ - গেট খুলে গেছে | 16 | #9FE0B8
+WIN1          | হুররে! | 38 | #FFFFFF
+WIN2          | স্বৈরাচারের হাত থেকে মুক্তি | 18 | #9FE0B8
 SCORE         | স্কোর | 16 | #FFD166
 FINALSCORE    | চূড়ান্ত স্কোর | 16 | #FFD166
 
-CLEARED       | সারি ভেঙেছে | 30 | #FFFFFF
+CLEARED       | আপনি বিজয়ের খুব কাছেই আছেন | 22 | #FFFFFF
 FALLEN        | পরাজিত | 15 | #FFB3B3
 NEXT          | এগিয়ে যেতে J চাপুন | 16 | #FFFFFF
 
-GAMEOVER      | সারি টিকে গেল | 32 | #FF6E6E
-DIEDAT        | তুমি পড়ে গেছো | 15 | #FFFFFF
+GAMEOVER      | আপনি শহীদ হয়েছেন | 28 | #FF6E6E
+DIEDAT        | আপনার আত্মত্যাগ স্মরণীয় থাকবে | 15 | #FFFFFF
 RETRY         | আবার শুরু করতে J চাপুন | 16 | #FFFFFF
 
 S_SHAHBAGH    | শাহবাগ | 30 | #FFFFFF

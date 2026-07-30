@@ -275,6 +275,14 @@ struct Fighter {
     bool  hasToken = false;          // holds an attack token this frame
     bool  alive = true;
     int   aiTimer = 0;
+    int   aiSlot = 0;                // formation lane/side while waiting to attack
+
+    // ---- AI relocation runs ----
+    // Regular enemies use these to switch sides after attacking; Hasina uses
+    // the same fields for her much faster cross-arena escape power.
+    int   specialCD = 0;
+    int   dashT = 0;
+    float dashX = 0, dashZ = 0;
 
     // ---- ranged enemies (DB Harun) ----
     bool  ranged = false;

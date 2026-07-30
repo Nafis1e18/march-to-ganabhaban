@@ -1,15 +1,13 @@
-// ============================================================
-//  Audio — every sound is synthesised at start-up.
+//  Audio — gameplay sound is synthesised at start-up.
 //
-//  No .wav or .ogg files anywhere. That keeps the download tiny
-//  for the phone build and sidesteps sample licensing entirely,
-//  which matters for a game you are going to hand to judges.
+//  The one exception is the user-supplied MP3 played once on the final
+//  victory screen. All combat SFX and the marching stage music remain
+//  generated here, keeping the rest of the audio compact.
 //
 //  The music is a four-bar marching loop: kick on the beat,
 //  snare on the off-beat, and a minor ostinato that transposes
 //  up one semitone per stage so later levels feel more urgent
 //  without needing a second piece of music.
-// ============================================================
 #include "audio.h"
 #include <cmath>
 #include <cstdlib>
@@ -21,6 +19,11 @@ static Sound g_sfx[SFX_COUNT];
 static Sound g_music;
 static bool  g_musicOn = false;
 static int   g_musicStage = -1;
+static Sound g_finalVictory;
+static bool  g_finalVictoryLoaded = false;
+
+static constexpr const char* FINAL_VICTORY_AUDIO =
+    "assets/audio/seikh_hasina_palay na.mp3";
 
 static constexpr int SR = 22050;    // plenty for chiptune-style material
 
@@ -132,6 +135,17 @@ void InitGameAudio() {
       g_sfx[SFX_GAMEOVER] = Bake(b); }
     { Buf b(0.20f); Tone(b, 0, 0.16f, 660, 990, 0.26f, 0, 6.0f); g_sfx[SFX_SELECT] = Bake(b); }
 
+    if (FileExists(FINAL_VICTORY_AUDIO)) {
+        g_finalVictory = LoadSound(FINAL_VICTORY_AUDIO);
+        g_finalVictoryLoaded = IsSoundValid(g_finalVictory);
+        if (g_finalVictoryLoaded) SetSoundVolume(g_finalVictory, 1.0f);
+        else TraceLog(LOG_WARNING, "final victory audio failed to load: %s",
+                      FINAL_VICTORY_AUDIO);
+    } else {
+        TraceLog(LOG_WARNING, "final victory audio is missing: %s",
+                 FINAL_VICTORY_AUDIO);
+    }
+
     g_ready = true;
 }
 
@@ -164,9 +178,29 @@ void StopMusic() {
     g_musicStage = -1;
 }
 
+void PlayFinalVictoryAudio() {
+    if (!g_ready || !g_finalVictoryLoaded) return;
+    // The state transition calls this once. Stop first only as protection
+    // against an accidental second transition; the clip itself never loops.
+    StopSound(g_sfx[SFX_CLEAR]);
+    StopSound(g_finalVictory);
+    PlaySound(g_finalVictory);
+}
+
+void StopFinalVictoryAudio() {
+    if (g_finalVictoryLoaded && IsSoundPlaying(g_finalVictory))
+        StopSound(g_finalVictory);
+}
+
 void UnloadGameAudio() {
     if (!g_ready) return;
     StopMusic();
+    StopFinalVictoryAudio();
+    if (g_finalVictoryLoaded) {
+        UnloadSound(g_finalVictory);
+        g_finalVictory = Sound{};
+        g_finalVictoryLoaded = false;
+    }
     for (int i = 0; i < SFX_COUNT; i++) UnloadSound(g_sfx[i]);
     g_ready = false;
 }

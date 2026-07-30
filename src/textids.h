@@ -116,4 +116,3 @@ __attribute__((unused)) static const char* TEXT_FILES[TX_COUNT] = {
     "assets/text/MODE_MED_D.png",
     "assets/text/MODE_HINT.png",
 };
-

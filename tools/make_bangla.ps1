@@ -98,7 +98,7 @@ foreach ($r in $rows) { $hdr.Add("    TX_$($r[0]),") }
 $hdr.Add("    TX_COUNT")
 $hdr.Add("};")
 $hdr.Add("")
-$hdr.Add("static const char* TEXT_FILES[TX_COUNT] = {")
+$hdr.Add("__attribute__((unused)) static const char* TEXT_FILES[TX_COUNT] = {")
 foreach ($r in $rows) { $hdr.Add("    `"assets/text/$($r[0]).png`",") }
 $hdr.Add("};")
 
