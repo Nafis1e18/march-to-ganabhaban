@@ -60,7 +60,9 @@ clutter a keyboard session.
 
 ## How it plays
 
-![gameplay](assets/Vedio/readme_final_gameplay.mp4)
+### Gameplay demo
+
+▶ **[Watch the gameplay video](https://github.com/Nafis1e18/march-to-ganabhaban/raw/refs/heads/main/assets/Vedio/readme_final_gameplay.mp4)**
 
 **The belt.** Every fighter has three coordinates: `x` along the street, `z` for
 depth up and down the road, `y` for jump height. You can only strike someone at
